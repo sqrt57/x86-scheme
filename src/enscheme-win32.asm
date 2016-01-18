@@ -1,5 +1,7 @@
 
 ; enscheme executable for Win32
+;
+; This file is part of enscheme project.
 ; Copyright (c) 2015, Dmitry Grigoryev
 
 format PE console
@@ -7,6 +9,8 @@ format PE console
 section '.code' code executable readable
 
 entry platform_start
+
+include 'unicode.inc'
 
 platform_start:
         
@@ -29,12 +33,18 @@ platform_start:
         call [CommandLineToArgvW]   ; Parse command line
         mov [argv], eax         ; arguments list goes to argv
 
-        mov ebx, 0
+        mov esi, 0
 next_arg:
-        mov eax, [argv]
-        mov eax, [eax+4*ebx]
-        mov edx, eax
-        call length16
+        mov eax, [argv]         ; Load address of argument list into EAX
+        mov eax, [eax+4*esi]    ; Load address of next argument into EAX
+        mov edx, eax            ; Copy address of next argument into EDX
+        call length16           ; Length of argument into EAX
+
+        mov ebx, eax            ; Copy length to EBX
+        mov eax, edx            ; Copy address of argument to EAX
+        call utf16_to_utf8_length   ; UTF-8 length is in EAX
+
+        mov eax, ebx            ; Length of argument to EAX
 
         push 0                  ; lpOverlapped = NULL
         push bytes_written      ; lpNumberOfBytesWritten
@@ -51,8 +61,8 @@ next_arg:
         push [hStdout]          ; hFile = standard output
         call [WriteFile]        ; Print string
 
-        inc ebx
-        cmp ebx, [argc]
+        inc esi
+        cmp esi, [argc]
         jb next_arg
 
         push 0                  ; lpOverlapped = NULL
@@ -64,19 +74,6 @@ next_arg:
 
         push 0                  ; return code
         call [ExitProcess]      ; Terminate program
-
-length16:
-        push ecx
-        mov ecx, 0
-        jmp .start
-    .next:
-        inc ecx
-    .start:
-        cmp word [eax+ecx*2], 0
-        jnz .next
-        mov eax, ecx
-        pop ecx
-        ret
 
 section '.data' data readable writeable
         hello   db "Hello world!", 10
