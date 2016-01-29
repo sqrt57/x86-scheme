@@ -2,7 +2,7 @@
 ; enscheme executable for Win32
 ;
 ; This file is part of enscheme project.
-; Copyright (c) 2015, Dmitry Grigoryev
+; Copyright (c) 2015-2016, Dmitry Grigoryev
 
 format PE console
 
