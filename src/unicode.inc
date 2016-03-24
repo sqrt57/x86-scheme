@@ -194,7 +194,7 @@ utf16_to_utf8:
         add edx, 3
         jmp .start
 
-    .outofmemory
+    .outofmemory:
         mov eax, -1
         pop ebx
         pop edx
