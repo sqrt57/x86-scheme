@@ -173,35 +173,9 @@ utf16_to_utf8:
         ja .start_loaded
 
         ; Correct surrogate pair - add 4 to length
-        add edx, 4
-        jmp .start
-
-    .one:
-        cmp edx, 1
+        cmp edx, 4
         jb .outofmemory
-        stosb
-        dec edx
-        jmp .start
-
-    .two:
-        cmp edx, 2
-        jb .outofmemory
-        stosb
-        sub edx, 2
-        jmp .start
-
-    .three:
-        add edx, 3
-        jmp .start
-
-    .outofmemory:
-        mov eax, -1
-        pop ebx
-        pop edx
-        pop ecx
-        pop edi
-        pop esi
-        ret
+        jmp .four
 
     .finish:
         mov eax, edx
@@ -214,4 +188,94 @@ utf16_to_utf8:
         pop edi
         pop esi
         ret
+
+    .one:
+        cmp edx, 1
+        jb .outofmemory
+        stosb
+        dec edx
+        jmp .start
+
+    .two:
+        cmp edx, 2
+        jb .outofmemory
+        mov ebx, eax
+        shr eax, 6
+        or eax, 11000000b
+        stosb
+        mov eax, ebx
+        and eax, 00111111b
+        or eax, 10000000b
+        stosb
+        sub edx, 2
+        jmp .start
+
+    .three:
+        cmp edx, 3
+        jb .outofmemory
+        mov ebx, eax
+        shr eax, 12
+        or eax, 11100000b
+        stosb
+        mov eax, ebx
+        shr eax, 6
+        and eax, 00111111b
+        or eax, 10000000b
+        mov eax, ebx
+        and eax, 00111111b
+        or eax, 10000000b
+        stosb
+        sub edx, 3
+        jmp .start
+
+    .outofmemory:
+        mov eax, -1
+        pop ebx
+        pop edx
+        pop ecx
+        pop edi
+        pop esi
+        ret
+
+    .four:
+        push eax            ; Put away second word
+        push ebx            ; Put away first word
+
+        mov eax, ebx
+        shr eax, 6
+        and eax, 00001111b
+        inc eax
+        mov ebx, eax
+        shr eax, 2
+        or eax, 11110000b
+        stosb
+
+        mov eax, ebx
+        and eax, 00000011b
+        shl eax, 4
+        mov ebx, [esp]
+        shr ebx, 2
+        and ebx, 00001111b
+        or eax, ebx
+        or eax, 10000000b
+        stosb
+
+        mov eax, [esp]
+        and eax, 00000011b
+        shl eax, 4
+        mov ebx, [esp+4]
+        shr ebx, 6
+        and ebx, 00001111b
+        or eax, ebx
+        or eax, 10000000b
+        stosb
+
+        mov eax, [esp+4]
+        and eax, 00111111b
+        or eax, 10000000b
+        stosb
+
+        add esp, 8
+        sub edx, 4
+        jmp .start
 

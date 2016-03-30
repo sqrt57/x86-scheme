@@ -35,16 +35,38 @@ platform_start:
 
         mov esi, 0
 next_arg:
+        ; Get next argument and its length
         mov eax, [argv]         ; Load address of argument list into EAX
         mov eax, [eax+4*esi]    ; Load address of next argument into EAX
         mov edx, eax            ; Copy address of next argument into EDX
         call length16           ; Length of argument into EAX
+        push eax                ; Length of argument
+        push edx                ; Address of argument
 
-        mov ebx, eax            ; Copy length to EBX
-        mov eax, edx            ; Copy address of argument to EAX
+        ; Get length of argument converted to UTF-8
+        mov ebx, [esp+4]        ; Copy length to EBX
+        mov eax, [esp]          ; Copy address of argument to EAX
         call utf16_to_utf8_length   ; UTF-8 length is in EAX
+        push eax                ; Length of UTF-8 result
 
-        mov eax, ebx            ; Length of argument to EAX
+        ; Convert argument to UTF-8
+        call [GetProcessHeap]   ; Get default process heap in EAX
+
+        push ebx                ; dwBytes = enough for UTF-8 string
+        push 0                  ; dwFlags = 0
+        push eax                ; hHeap = default process heap
+        call [HeapAlloc]        ; Allocate buffer for converting
+        push eax                ; Address of buffer for result
+
+        mov ebx, [esp+12]       ; Length of source string
+        mov eax, [esp+8]        ; Address of source string
+        mov edx, [esp+4]        ; Length of UTF-8 result
+        mov ecx, [esp]          ; Address of UTF-8 result
+        call utf16_to_utf8      ; Do the conversion
+
+        ; Output UTF-16 argument
+        mov eax, [esp+12]       ; Length of argument to EAX
+        mov edx, [esp+8]        ; Address of argument
 
         push 0                  ; lpOverlapped = NULL
         push bytes_written      ; lpNumberOfBytesWritten
@@ -60,6 +82,35 @@ next_arg:
         push newline            ; lpBuffer
         push [hStdout]          ; hFile = standard output
         call [WriteFile]        ; Print string
+
+        ; Output argument converted to UTF-8
+        mov eax, [esp+4]        ; Length of argument to EAX
+        mov edx, [esp]          ; Address of argument
+
+        push 0                  ; lpOverlapped = NULL
+        push bytes_written      ; lpNumberOfBytesWritten
+        push eax                ; nNumberOfBytesToWrite
+        push edx                ; lpBuffer
+        push [hStdout]          ; hFile = standard output
+        call [WriteFile]        ; Print string
+
+        push 0                  ; lpOverlapped = NULL
+        push bytes_written      ; lpNumberOfBytesWritten
+        push newline_len        ; nNumberOfBytesToWrite
+        push newline            ; lpBuffer
+        push [hStdout]          ; hFile = standard output
+        call [WriteFile]        ; Print string
+
+        ; Free memory
+        call [GetProcessHeap]   ; Get default process heap in EAX
+
+        mov ebx, [esp]          ; Allocated memory block
+        push ebx                ; lpMem
+        push 0                  ; dwFlags = 0
+        push eax                ; hHeap = default process heap
+        call [HeapFree]         ; Free memory block
+
+        add esp, 16
 
         inc esi
         cmp esi, [argc]
@@ -99,6 +150,9 @@ kernel32_ilt:
         dd rva GetCommandLineW_name
         dd rva GetStdHandle_name
         dd rva WriteFile_name
+        dd rva GetProcessHeap_name
+        dd rva HeapAlloc_name
+        dd rva HeapFree_name
         dd 0
 
 shell32_ilt:
@@ -110,6 +164,9 @@ kernel32_iat:
         GetCommandLineW dd rva GetCommandLineW_name
         GetStdHandle dd rva GetStdHandle_name
         WriteFile dd rva WriteFile_name
+        GetProcessHeap dd rva GetProcessHeap_name
+        HeapAlloc dd rva HeapAlloc_name
+        HeapFree dd rva HeapFree_name
         dd 0
 
 shell32_iat:
@@ -128,4 +185,10 @@ shell32_iat:
         GetStdHandle_name db 0, 0, "GetStdHandle", 0
         align 2
         WriteFile_name db 0, 0, "WriteFile", 0
+        align 2
+        GetProcessHeap_name db 0, 0, "GetProcessHeap", 0
+        align 2
+        HeapAlloc_name db 0, 0, "HeapAlloc", 0
+        align 2
+        HeapFree_name db 0, 0, "HeapFree", 0
 
