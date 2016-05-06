@@ -4,13 +4,14 @@
 ; This file is part of enscheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
+include 'unicode.inc'
+include 'core.inc'
+
 format PE console
 
 section '.code' code executable readable
 
 entry platform_start
-
-include 'unicode.inc'
 
 platform_start:
         
@@ -23,6 +24,10 @@ platform_start:
         push -10                ; nStdHandle = -10 (standard input)
         call [GetStdHandle]     ; Retrieve standard output handle
         mov [hStdin], eax       ; Store it in hStdin
+
+        ;; Initialize interpeter
+
+        call core_init
 
         ;; Parse command line
         
@@ -126,11 +131,17 @@ next_arg:
         push 0                  ; return code
         call [ExitProcess]      ; Terminate program
 
+unicode_code
+core_code
+
 section '.data' data readable writeable
         hello   db "Hello world!", 10
         hello_len = $ - hello
         newline db 10
         newline_len = $ - newline
+
+unicode_data
+core_data
 
 section '.bss' data readable writeable
         hStdout         rd  1
@@ -138,6 +149,9 @@ section '.bss' data readable writeable
         bytes_written   rd  1
         argc            rd  1
         argv            rd  1
+
+unicode_bss
+core_bss
         
 section '.idata' import data readable writable
 

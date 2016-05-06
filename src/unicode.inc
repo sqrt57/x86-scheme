@@ -5,6 +5,8 @@
 ; This file is part of enscheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
+macro unicode_code
+{
 ; Calculates number of 16-bit characters in null-terminated UTF-16 string
 ; In: EAX - address of null-terminated UTF-16 string
 ; Out: EAX - length of the string
@@ -278,4 +280,13 @@ utf16_to_utf8:
         add esp, 8
         sub edx, 4
         jmp .start
+}
+
+macro unicode_data
+{
+}
+
+macro unicode_bss
+{
+}
 
