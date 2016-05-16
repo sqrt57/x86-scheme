@@ -8,11 +8,11 @@
 macro unicode_code
 {
 ; Calculates number of 16-bit characters in null-terminated UTF-16 string
-; In: EAX - address of null-terminated UTF-16 string
-; Out: EAX - length of the string
+; In: 1) address of null-terminated UTF-16 string
+; Out: length of the string
 ; Preserves all other registers
 length16:
-        push ecx
+        mov eax, [esp+4]
         mov ecx, 0
         jmp .start
     .next:
@@ -21,7 +21,6 @@ length16:
         cmp word [eax+ecx*2], 0
         jnz .next
         mov eax, ecx
-        pop ecx
         ret
 
 ; Calculates amount memory needed for converting UTF-16 string to UTF-8 string

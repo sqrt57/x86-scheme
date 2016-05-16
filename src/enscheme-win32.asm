@@ -4,6 +4,8 @@
 ; This file is part of enscheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
+include 'proc.inc'
+
 include 'unicode.inc'
 include 'core.inc'
 
@@ -14,6 +16,8 @@ section '.code' code executable readable
 entry platform_start
 
 platform_start:
+        
+        cld
         
         ;; Retrieve standard handles and store them into variables
 
@@ -27,7 +31,7 @@ platform_start:
 
         ;; Initialize interpeter
 
-        call core_init
+        ccall core_init
 
         ;; Parse command line
         
@@ -42,11 +46,10 @@ platform_start:
 next_arg:
         ; Get next argument and its length
         mov eax, [argv]         ; Load address of argument list into EAX
-        mov eax, [eax+4*esi]    ; Load address of next argument into EAX
-        mov edx, eax            ; Copy address of next argument into EDX
-        call length16           ; Length of argument into EAX
+        mov edi, [eax+4*esi]    ; Load address of next argument into EDI
+        ccall length16, edi     ; Length of argument into EAX
         push eax                ; Length of argument
-        push edx                ; Address of argument
+        push edi                ; Address of argument
 
         ; Get length of argument converted to UTF-8
         mov ebx, [esp+4]        ; Copy length to EBX
