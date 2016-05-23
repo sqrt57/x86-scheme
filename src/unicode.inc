@@ -24,24 +24,20 @@ length16:
         ret
 
 ; Calculates amount memory needed for converting UTF-16 string to UTF-8 string
-; In: EAX - address of UTF-16 string
-;     EBX - number of 16-bit characters in the string
-; Out: EAX - length of resulting UTF-8 string including extra terminating
-;            null byte
-; Preserves all other registers including EBX
+; In: 1) address of UTF-16 string
+;     2) number of 16-bit characters in the string
+; Out: length of resulting UTF-8 string including extra terminating null byte
 utf16_to_utf8_length:
     ; ESI - address of next source char
     ; ECX - number of remaining 16-bit chars
     ; EAX - current char
     ; EDX - length of resulting UTF-8 string
         push esi
-        push ecx
-        push edx
-        mov ecx, ebx
-        mov esi, eax
+        mov esi, [esp+8]
+        mov ecx, [esp+12]
         cld
-        xor edx, edx
         xor eax, eax
+        mov edx, eax
     .start:
         jcxz .finish
         lodsw
@@ -101,19 +97,16 @@ utf16_to_utf8_length:
 
     .finish:
         mov eax, edx
-        pop edx
-        pop ecx
         pop esi
         ret
 
 ; Converts UTF-16 string to UTF-8 string
-; In: EAX - address of UTF-16 string
-;     EBX - number of 16-bit characters in the string
-;     ECX - address of memory for result
-;     EDX - length of memory for result
-; Out: EAX - length of UTF-8 string excluding terminating null byte
+; In: 1) address of UTF-16 string
+;     2) number of 16-bit characters in the string
+;     3) address of memory for result
+;     4) length of memory for result
+; Out: Length of UTF-8 string excluding terminating null byte
 ;            If not enough memory for output returns -1.
-; Preserves all other registers
 utf16_to_utf8:
     ; ESI - address of next source char
     ; EDI - address of next result char
@@ -121,14 +114,15 @@ utf16_to_utf8:
     ; EAX - current char
     ; EBX - helper for recoding
     ; EDX - number of remaining bytes in result
+        push ebp
+        mov ebp, esp
         push esi
         push edi
-        push ecx
-        push edx
         push ebx
-        mov esi, eax
-        mov edi, ecx
-        mov ecx, ebx
+        mov esi, [ebp+8]
+        mov ecx, [ebp+12]
+        mov edi, [ebp+16]
+        mov edx, [ebp+20]
         cld
         xor eax, eax
     .start:
@@ -179,15 +173,13 @@ utf16_to_utf8:
         jmp .four
 
     .finish:
-        mov eax, edx
+        mov eax, [ebp+20]
+        sub eax, edx
         pop ebx
-        pop edx
-        mov ecx, edx
-        sub ecx, eax
-        mov eax, ecx
-        pop ecx
         pop edi
         pop esi
+        mov esp, ebp
+        pop ebp
         ret
 
     .one:

@@ -24,13 +24,25 @@ macro ccall proc, [arg]
         size@ccall = 0
     if ~ arg eq
     reverse
-        push arg
+        pushd arg
         size@ccall = size@ccall + 4
-    end if
     common
+    end if
         call proc
         if size@ccall
             add esp, size@ccall
         end if
 }
+
+macro stdcall proc, [arg]
+{
+    common
+    if ~ arg eq
+    reverse
+        pushd arg
+    common
+    end if
+    call proc
+}
+
 

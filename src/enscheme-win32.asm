@@ -16,123 +16,94 @@ section '.code' code executable readable
 entry platform_start
 
 platform_start:
-        
+        ; Clear direction flag for calling conventions
         cld
+        ; Allocate stack space for locals
+        mov ebp, esp
+        sub esp, 16
         
         ;; Retrieve standard handles and store them into variables
 
-        push -11                ; nStdHandle = -11 (standard output)
-        call [GetStdHandle]     ; Retrieve standard output handle
+        ; nStdHandle = -11 (standard output)
+        ; Retrieve standard output handle
+        stdcall [GetStdHandle], -11
         mov [hStdout], eax      ; Store it in hStdout
 
-        push -10                ; nStdHandle = -10 (standard input)
-        call [GetStdHandle]     ; Retrieve standard output handle
+        ; nStdHandle = -10 (standard input)
+        ; Retrieve standard input handle
+        stdcall [GetStdHandle], -10
         mov [hStdin], eax       ; Store it in hStdin
 
         ;; Initialize interpeter
-
         ccall core_init
 
-        ;; Parse command line
-        
-        call [GetCommandLineW]  ; Get command line
+        ; Get command line
+        stdcall [GetCommandLineW]
 
-        push argc               ; pNumArgs - number of arguments goes to argc
-        push eax                ; Address of command line
-        call [CommandLineToArgvW]   ; Parse command line
+        ; Parse command line
+        stdcall [CommandLineToArgvW], eax, argc
         mov [argv], eax         ; arguments list goes to argv
 
         mov esi, 0
+
 next_arg:
-        ; Get next argument and its length
+        ; [ebp-4] - number of 16-bit words in UTF-16 argument
+        ; [ebp-8] - address of UTF-16 argument
+        ; [ebp-12] - length of UTF-8 argumnet
+        ; [ebp-16] - address of UTF-8 argument
+        ;; Get next argument and its length
         mov eax, [argv]         ; Load address of argument list into EAX
         mov edi, [eax+4*esi]    ; Load address of next argument into EDI
+        mov [ebp-8], edi        ; Address of argument
         ccall length16, edi     ; Length of argument into EAX
-        push eax                ; Length of argument
-        push edi                ; Address of argument
+        mov [ebp-4], eax        ; Length of argument
 
-        ; Get length of argument converted to UTF-8
-        mov ebx, [esp+4]        ; Copy length to EBX
-        mov eax, [esp]          ; Copy address of argument to EAX
-        call utf16_to_utf8_length   ; UTF-8 length is in EAX
-        push eax                ; Length of UTF-8 result
+        ;; Get length of argument converted to UTF-8
+        ccall utf16_to_utf8_length, [ebp-8], [ebp-4]
+                                ; UTF-8 length is in EAX
+        mov [ebp-12], eax       ; Length of UTF-8 result
 
-        ; Convert argument to UTF-8
-        call [GetProcessHeap]   ; Get default process heap in EAX
+        ;; Convert argument to UTF-8
+        ; Allocate buffer for converting
+        stdcall [GetProcessHeap]
+        stdcall [HeapAlloc], eax, 0, [ebp-12]
+        mov [ebp-16], eax       ; Address of buffer for result
 
-        push ebx                ; dwBytes = enough for UTF-8 string
-        push 0                  ; dwFlags = 0
-        push eax                ; hHeap = default process heap
-        call [HeapAlloc]        ; Allocate buffer for converting
-        push eax                ; Address of buffer for result
+        ; Convert argument
+        ccall utf16_to_utf8, [ebp-8], [ebp-4], [ebp-16], [ebp-12]
 
-        mov ebx, [esp+12]       ; Length of source string
-        mov eax, [esp+8]        ; Address of source string
-        mov edx, [esp+4]        ; Length of UTF-8 result
-        mov ecx, [esp]          ; Address of UTF-8 result
-        call utf16_to_utf8      ; Do the conversion
-
-        ; Output UTF-16 argument
-        mov eax, [esp+12]       ; Length of argument to EAX
-        mov edx, [esp+8]        ; Address of argument
-
-        push 0                  ; lpOverlapped = NULL
-        push bytes_written      ; lpNumberOfBytesWritten
+        ; Print UTF-16 string
+        mov eax, [ebp-4]
         shl eax, 1
-        push eax                ; nNumberOfBytesToWrite
-        push edx                ; lpBuffer
-        push [hStdout]          ; hFile = standard output
-        call [WriteFile]        ; Print string
+        stdcall [WriteFile], [hStdout], [ebp-8], eax, \
+            bytes_written, 0
 
-        push 0                  ; lpOverlapped = NULL
-        push bytes_written      ; lpNumberOfBytesWritten
-        push newline_len        ; nNumberOfBytesToWrite
-        push newline            ; lpBuffer
-        push [hStdout]          ; hFile = standard output
-        call [WriteFile]        ; Print string
+        ; Print newline
+        stdcall [WriteFile], [hStdout], newline, newline_len, \
+            bytes_written, 0
 
-        ; Output argument converted to UTF-8
-        mov eax, [esp+4]        ; Length of argument to EAX
-        mov edx, [esp]          ; Address of argument
+        ; Print string converted to UTF-8
+        stdcall [WriteFile], [hStdout], [ebp-16], [ebp-12], \
+            bytes_written, 0
 
-        push 0                  ; lpOverlapped = NULL
-        push bytes_written      ; lpNumberOfBytesWritten
-        push eax                ; nNumberOfBytesToWrite
-        push edx                ; lpBuffer
-        push [hStdout]          ; hFile = standard output
-        call [WriteFile]        ; Print string
-
-        push 0                  ; lpOverlapped = NULL
-        push bytes_written      ; lpNumberOfBytesWritten
-        push newline_len        ; nNumberOfBytesToWrite
-        push newline            ; lpBuffer
-        push [hStdout]          ; hFile = standard output
-        call [WriteFile]        ; Print string
+        ; Print newline
+        stdcall [WriteFile], [hStdout], newline, newline_len, \
+            bytes_written, 0
 
         ; Free memory
-        call [GetProcessHeap]   ; Get default process heap in EAX
-
-        mov ebx, [esp]          ; Allocated memory block
-        push ebx                ; lpMem
-        push 0                  ; dwFlags = 0
-        push eax                ; hHeap = default process heap
-        call [HeapFree]         ; Free memory block
-
-        add esp, 16
+        stdcall [GetProcessHeap]
+        stdcall [HeapFree], eax, 0, [ebp-16]
 
         inc esi
         cmp esi, [argc]
         jb next_arg
 
-        push 0                  ; lpOverlapped = NULL
-        push bytes_written      ; lpNumberOfBytesWritten
-        push hello_len          ; nNumberOfBytesToWrite
-        push hello              ; lpBuffer
-        push [hStdout]          ; hFile = standard output
-        call [WriteFile]        ; Print string
+        ; Print newline
+        stdcall [WriteFile], [hStdout], hello, hello_len, \
+            bytes_written, 0
 
-        push 0                  ; return code
-        call [ExitProcess]      ; Terminate program
+        ; Terminate program
+        stdcall [ExitProcess], 0
 
 unicode_code
 core_code
