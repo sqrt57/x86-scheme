@@ -8,6 +8,7 @@ include 'proc.inc'
 
 include 'unicode.inc'
 include 'core.inc'
+include 'runner.inc'
 
 format PE console
 
@@ -18,114 +19,43 @@ entry platform_start
 platform_start:
         ; Clear direction flag for calling conventions
         cld
-        ; Allocate stack space for locals
-        mov ebp, esp
-        sub esp, 16
-        
-        ;; Retrieve standard handles and store them into variables
 
-        ; nStdHandle = -11 (standard output)
-        ; Retrieve standard output handle
-        stdcall [GetStdHandle], -11
-        mov [hStdout], eax      ; Store it in hStdout
+        ccall win32_init
 
-        ; nStdHandle = -10 (standard input)
-        ; Retrieve standard input handle
-        stdcall [GetStdHandle], -10
-        mov [hStdin], eax       ; Store it in hStdin
+        ccall main, [argc], [argv], [argl]
 
-        ;; Initialize interpeter
+        ; Initialize interpeter
         ccall core_init
 
-        ; Get command line
-        stdcall [GetCommandLineW]
-
-        ; Parse command line
-        stdcall [CommandLineToArgvW], eax, argc
-        mov [argv], eax         ; arguments list goes to argv
-
-        mov esi, 0
-
-next_arg:
-        ; [ebp-4] - number of 16-bit words in UTF-16 argument
-        ; [ebp-8] - address of UTF-16 argument
-        ; [ebp-12] - length of UTF-8 argumnet
-        ; [ebp-16] - address of UTF-8 argument
-        ;; Get next argument and its length
-        mov eax, [argv]         ; Load address of argument list into EAX
-        mov edi, [eax+4*esi]    ; Load address of next argument into EDI
-        mov [ebp-8], edi        ; Address of argument
-        ccall length16, edi     ; Length of argument into EAX
-        mov [ebp-4], eax        ; Length of argument
-
-        ;; Get length of argument converted to UTF-8
-        ccall utf16_to_utf8_length, [ebp-8], [ebp-4]
-                                ; UTF-8 length is in EAX
-        mov [ebp-12], eax       ; Length of UTF-8 result
-
-        ;; Convert argument to UTF-8
-        ; Allocate buffer for converting
-        stdcall [GetProcessHeap]
-        stdcall [HeapAlloc], eax, 0, [ebp-12]
-        mov [ebp-16], eax       ; Address of buffer for result
-
-        ; Convert argument
-        ccall utf16_to_utf8, [ebp-8], [ebp-4], [ebp-16], [ebp-12]
-
-        ; Print UTF-16 string
-        mov eax, [ebp-4]
-        shl eax, 1
-        stdcall [WriteFile], [hStdout], [ebp-8], eax, \
-            bytes_written, 0
-
-        ; Print newline
-        stdcall [WriteFile], [hStdout], newline, newline_len, \
-            bytes_written, 0
-
-        ; Print string converted to UTF-8
-        stdcall [WriteFile], [hStdout], [ebp-16], [ebp-12], \
-            bytes_written, 0
-
-        ; Print newline
-        stdcall [WriteFile], [hStdout], newline, newline_len, \
-            bytes_written, 0
-
-        ; Free memory
-        stdcall [GetProcessHeap]
-        stdcall [HeapFree], eax, 0, [ebp-16]
-
-        inc esi
-        cmp esi, [argc]
-        jb next_arg
-
-        ; Print newline
-        stdcall [WriteFile], [hStdout], hello, hello_len, \
-            bytes_written, 0
-
         ; Terminate program
-        stdcall [ExitProcess], 0
+        stdcall [ExitProcess], eax
 
+include 'system-win32.inc'
 unicode_code
 core_code
+runner_code
 
 section '.data' data readable writeable
-        hello   db "Hello world!", 10
-        hello_len = $ - hello
         newline db 10
         newline_len = $ - newline
 
 unicode_data
 core_data
+runner_data
 
 section '.bss' data readable writeable
         hStdout         rd  1
         hStdin          rd  1
         bytes_written   rd  1
         argc            rd  1
+        argv16          rd  1
         argv            rd  1
+        argl            rd  1
+        win32_heap      rd  1
 
 unicode_bss
 core_bss
+runner_bss
         
 section '.idata' import data readable writable
 
