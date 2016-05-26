@@ -95,7 +95,8 @@ write_string:
 
 ; Writes new line to standard output
 write_newline:
-        stdcall [WriteFile], [hStdout], newline, newline_len, \
+        stdcall [WriteFile], [hStdout], newline_str, newline_len, \
             bytes_written, 0
         ret
+
 

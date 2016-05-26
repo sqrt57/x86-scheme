@@ -4,6 +4,7 @@
 ; This file is part of enscheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
+include 'macros.inc'
 include 'proc.inc'
 
 include 'unicode.inc'
@@ -36,8 +37,7 @@ core_code
 runner_code
 
 section '.data' data readable writeable
-        newline db 10
-        newline_len = $ - newline
+def_string newline, 10
 
 unicode_data
 core_data
