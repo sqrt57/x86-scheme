@@ -79,14 +79,8 @@ main:
         ret
 
     .exec_file:
-        push eax
-        push edx
-        ccall write_string, exec_file_str, exec_file_len
-        pop edx
-        pop eax
-        ccall write_string, eax, edx
-        ccall write_newline
-        mov eax, 1
+        ccall read_file, eax
+        ccall exec_string, eax, edx
         jmp .next_arg
 
     .exec_arg:

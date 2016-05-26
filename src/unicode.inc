@@ -26,7 +26,8 @@ length16:
 ; Calculates amount memory needed for converting UTF-16 string to UTF-8 string
 ; In: 1) address of UTF-16 string
 ;     2) number of 16-bit characters in the string
-; Out: length of resulting UTF-8 string including extra terminating null byte
+; Out: length of resulting UTF-8 string not including
+;       extra terminating null byte
 utf16_to_utf8_length:
     ; ESI - address of next source char
     ; ECX - number of remaining 16-bit chars
@@ -104,7 +105,7 @@ utf16_to_utf8_length:
 ; In: 1) address of UTF-16 string
 ;     2) number of 16-bit characters in the string
 ;     3) address of memory for result
-;     4) length of memory for result
+;     4) length of memory for result (including terminating null byte)
 ; Out: Length of UTF-8 string excluding terminating null byte
 ;            If not enough memory for output returns -1.
 utf16_to_utf8:
@@ -173,8 +174,15 @@ utf16_to_utf8:
         jmp .four
 
     .finish:
+        ; Extra null-terminating byte
+        cmp edx, 1
+        jb .outofmemory
+        xor eax, eax
+        stosb
+
         mov eax, [ebp+20]
         sub eax, edx
+    .ret:
         pop ebx
         pop edi
         pop esi
@@ -223,12 +231,7 @@ utf16_to_utf8:
 
     .outofmemory:
         mov eax, -1
-        pop ebx
-        pop edx
-        pop ecx
-        pop edi
-        pop esi
-        ret
+        jmp .ret
 
     .four:
         push eax            ; Put away second word

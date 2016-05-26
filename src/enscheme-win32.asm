@@ -71,6 +71,11 @@ kernel32_ilt:
         dd rva GetProcessHeap_name
         dd rva HeapAlloc_name
         dd rva HeapFree_name
+        dd rva CreateFileA_name
+        dd rva CloseHandle_name
+        dd rva GetFileSizeEx_name
+        dd rva GetLastError_name
+        dd rva ReadFile_name
         dd 0
 
 shell32_ilt:
@@ -85,6 +90,11 @@ kernel32_iat:
         GetProcessHeap dd rva GetProcessHeap_name
         HeapAlloc dd rva HeapAlloc_name
         HeapFree dd rva HeapFree_name
+        CreateFileA dd rva CreateFileA_name
+        CloseHandle dd rva CloseHandle_name
+        GetFileSizeEx dd rva GetFileSizeEx_name
+        GetLastError dd rva GetLastError_name
+        ReadFile dd rva ReadFile_name
         dd 0
 
 shell32_iat:
@@ -109,4 +119,14 @@ shell32_iat:
         HeapAlloc_name db 0, 0, "HeapAlloc", 0
         align 2
         HeapFree_name db 0, 0, "HeapFree", 0
+        align 2
+        CreateFileA_name db 0, 0, "CreateFileA", 0
+        align 2
+        CloseHandle_name db 0, 0, "CloseHandle", 0
+        align 2
+        GetFileSizeEx_name db 0, 0, "GetFileSizeEx", 0
+        align 2
+        GetLastError_name db 0, 0, "GetLastError", 0
+        align 2
+        ReadFile_name db 0, 0, "ReadFile", 0
 

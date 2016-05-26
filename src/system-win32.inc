@@ -59,11 +59,15 @@ win32_init:
 
         ;; Convert argument to UTF-8
         ; Allocate buffer for converting
-        stdcall [HeapAlloc], [win32_heap], 0, [ebp-12]
+        mov eax, [ebp-12]
+        inc eax                 ; For extra terminating null byte
+        stdcall [HeapAlloc], [win32_heap], 0, eax
         mov [ebp-16], eax       ; Address of buffer for result
 
         ; Convert argument
-        ccall utf16_to_utf8, [ebp-8], [ebp-4], [ebp-16], [ebp-12]
+        mov eax, [ebp-12]
+        inc eax                 ; For extra terminating null byte
+        ccall utf16_to_utf8, [ebp-8], [ebp-4], [ebp-16], eax
 
         ; Store address of argument in argv
         mov eax, [argv]
@@ -99,4 +103,34 @@ write_newline:
             bytes_written, 0
         ret
 
+; Reads a file into memory
+; In: 1) File path (null-terminated string)
+; Out: EAX - memory address of file data (NULL in case of error)
+;      EDX - length of file data
+read_file:
+        push ebp
+        mov ebp, esp
+        sub esp, 20
+        ; Locals:
+        ; [EBP-4] File handle
+        ; [EBP-8] Allocated memory address
+        ; [EBP-12] High doubleword of file size
+        ; [EBP-16] Low doubleword of file size
+        ; [EBP-20] Number of bytes read
+
+        stdcall [CreateFileA], [ebp+8], 0x80000000, 1, 0, 3, 0, 0
+        mov [ebp-4], eax
+        lea edx, [ebp-16]
+        stdcall [GetFileSizeEx], eax, edx
+        stdcall [HeapAlloc], [win32_heap], 0, [ebp-16]
+        mov [ebp-8], eax
+        lea edx, [ebp-20]
+        stdcall [ReadFile], [ebp-4], [ebp-8], [ebp-16], edx, 0
+        stdcall [CloseHandle], [ebp-4]
+        mov eax, [ebp-8]
+        mov edx, [ebp-16]
+
+        mov esp, ebp
+        pop ebp
+        ret
 
