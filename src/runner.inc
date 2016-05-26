@@ -79,7 +79,12 @@ main:
         ret
 
     .exec_file:
+        push eax
+        push edx
         ccall read_file, eax
+        test eax, eax
+        jz .file_error
+        add esp, 8
         ccall exec_string, eax, edx
         jmp .next_arg
 
@@ -105,6 +110,16 @@ main:
         ccall write_newline
         mov eax, 1
         jmp .end
+
+    .file_error:
+        ccall write_string, file_error_str, file_error_len
+        pop edx
+        pop eax
+        ccall write_string, eax, edx
+        ccall write_string, quote_str, quote_len
+        ccall write_newline
+        mov eax, 1
+        jmp .end
 }
 
 macro runner_data
@@ -112,7 +127,7 @@ macro runner_data
 def_string incorrect_arg, 'Error: incorrect argument '''
 def_string quote, ''''
 def_string expr_expected, 'Error: expected scheme expression after ''-e'''
-def_string exec_file, 'Executing file: '
+def_string file_error, 'Error reading file '''
 }
 
 macro runner_bss

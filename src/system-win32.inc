@@ -110,26 +110,49 @@ write_newline:
 read_file:
         push ebp
         mov ebp, esp
-        sub esp, 20
+        sub esp, 24
         ; Locals:
         ; [EBP-4] File handle
         ; [EBP-8] Allocated memory address
         ; [EBP-12] High doubleword of file size
         ; [EBP-16] Low doubleword of file size
         ; [EBP-20] Number of bytes read
+        ; [EBP-24] Result of ReadFile
 
         stdcall [CreateFileA], [ebp+8], 0x80000000, 1, 0, 3, 0, 0
         mov [ebp-4], eax
+        cmp eax, -1
+        je .error
+
         lea edx, [ebp-16]
         stdcall [GetFileSizeEx], eax, edx
+        test eax, eax
+        jz .error
+
+        cmp dword [ebp-12], 0
+        jnz .error
+
         stdcall [HeapAlloc], [win32_heap], 0, [ebp-16]
         mov [ebp-8], eax
+        test eax, eax
+        jz .error
+
         lea edx, [ebp-20]
         stdcall [ReadFile], [ebp-4], [ebp-8], [ebp-16], edx, 0
+        mov [ebp-24], eax
         stdcall [CloseHandle], [ebp-4]
-        mov eax, [ebp-8]
-        mov edx, [ebp-16]
 
+        cmp dword [ebp-24], 0
+        je .error
+
+        mov eax, [ebp-8]
+        mov edx, [ebp-20]
+        jmp .ret
+
+    .error:
+        mov eax, 0
+
+    .ret:
         mov esp, ebp
         pop ebp
         ret
