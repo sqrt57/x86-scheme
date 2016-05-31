@@ -2,5 +2,5 @@
 *.o
 *.lst
 *~
-/fasm/
+/fasm*/
 /pedump/
