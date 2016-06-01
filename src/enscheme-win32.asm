@@ -36,12 +36,12 @@ unicode_code
 core_code
 runner_code
 
-section '.data' data readable writeable
+section '.rodata' data readable
 def_string newline, 10
 
-unicode_data
-core_data
-runner_data
+unicode_rodata
+core_rodata
+runner_rodata
 
 section '.bss' data readable writeable
         hStdout         rd  1

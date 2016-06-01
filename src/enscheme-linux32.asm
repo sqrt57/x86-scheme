@@ -15,7 +15,7 @@ format ELF executable 3
 
 entry platform_start
 
-segment readable executable
+segment executable
 
 platform_start:
         ; Clear direction flag for calling conventions
@@ -34,14 +34,14 @@ unicode_code
 core_code
 runner_code
 
-segment readable writeable
+segment readable
 def_string newline, 10
 
-unicode_data
-core_data
-runner_data
+unicode_rodata
+core_rodata
+runner_rodata
 
-segment writeable
+segment readable writeable
         bytes_written   rd  1
         argc            rd  1
         argv            rd  1

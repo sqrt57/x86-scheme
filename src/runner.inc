@@ -122,7 +122,7 @@ main:
         jmp .end
 }
 
-macro runner_data
+macro runner_rodata
 {
 def_string incorrect_arg, 'Error: incorrect argument '''
 def_string quote, ''''

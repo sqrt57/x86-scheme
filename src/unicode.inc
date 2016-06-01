@@ -276,7 +276,7 @@ utf16_to_utf8:
         jmp .start
 }
 
-macro unicode_data
+macro unicode_rodata
 {
 }
 

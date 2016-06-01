@@ -22,7 +22,7 @@ exec_string:
         ret
 }
 
-macro core_data
+macro core_rodata
 {
 def_string msg_exec, 'Executing: '
 }
