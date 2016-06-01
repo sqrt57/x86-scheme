@@ -23,6 +23,22 @@ length16:
         mov eax, ecx
         ret
 
+; Calculates length of 8-bit string
+; In: 1) address of null-terminated UTF-8 string
+; Out: length of the string
+; Preserves all other registers
+length:
+        mov eax, [esp+4]
+        mov ecx, 0
+        jmp .start
+    .next:
+        inc ecx
+    .start:
+        cmp byte [eax+ecx], 0
+        jnz .next
+        mov eax, ecx
+        ret
+
 ; Calculates amount memory needed for converting UTF-16 string to UTF-8 string
 ; In: 1) address of UTF-16 string
 ;     2) number of 16-bit characters in the string

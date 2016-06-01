@@ -20,6 +20,9 @@ segment executable
 platform_start:
         ; Clear direction flag for calling conventions
         cld
+        
+        pop [argc]
+        mov [argv], esp
 
         ccall linux32_init
 
@@ -27,7 +30,7 @@ platform_start:
 
         mov ebx, eax
         mov eax, 1
-        int 80h
+        int 0x80
 
 include 'system-linux32.inc'
 unicode_code
@@ -42,10 +45,10 @@ core_rodata
 runner_rodata
 
 segment readable writeable
-        bytes_written   rd  1
         argc            rd  1
         argv            rd  1
         argl            rd  1
+        cur_brk         rd  1
 
 unicode_bss
 core_bss
