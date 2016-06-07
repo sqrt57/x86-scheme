@@ -27,11 +27,7 @@ linux32_init:
         mov ebp, esp
         push esi
 
-        syscall_before
-        mov eax, 45
-        mov ebx, 0
-        int 0x80
-        syscall_after
+        ccall linux_syscall, 45, 0
         mov [cur_brk], eax
 
         mov eax, [argc]
@@ -60,27 +56,17 @@ linux32_init:
 ; Out: Address of allocated memory block
 ;      Returns NULL on error
 brk_alloc:
-        push ebp
-        mov ebp, esp
-        syscall_before
-        mov eax, 45
-        mov ebx, [cur_brk]
-        add ebx, [ebp+8]
-        int 0x80
+        mov eax, [cur_brk]
+        add eax, [esp+4]
+        ccall linux_syscall, 45, eax
         mov edx, [cur_brk]
         cmp edx, eax
         je .error
         mov [cur_brk], eax
         mov eax, edx
-        syscall_after
-        mov esp, ebp
-        pop ebp
         ret
     .error:
         xor eax, eax
-        syscall_after
-        mov esp, ebp
-        pop ebp
         ret
 
 ; Writes a string to standard output
@@ -89,26 +75,50 @@ brk_alloc:
 write_string:
         push ebp
         mov ebp, esp
-        syscall_before
-        mov eax, 4
-        mov ebx, 1
-        mov ecx, [ebp+8]
-        mov edx, [ebp+12]
-        int 0x80
-        syscall_after
+        ccall linux_syscall, 4, 1, [ebp+8], [ebp+12]
         mov esp, ebp
         pop ebp
         ret
 
 ; Writes new line to standard output
 write_newline:
+        ccall linux_syscall, 4, 1, newline_str, newline_len
+        ret
+
+; mmap2 syscall
+; In: 1) address for the new mapping
+;     2) length of the mapping
+;     3) desired memory protection
+;     4) flags
+;     5) file descriptor
+;     6) offset into file (specified in 4096-bytes pages)
+; Out: On success return address of the mapped area
+;      On error returns -ERRORCODE, which has range -133..-1
+mmap2:
+        push ebp
+        mov ebp, esp
+        ccall linux_syscall, 192, [ebp+8], [ebp+12], [ebp+16],\
+                [ebp+20], [ebp+24], [ebp+28]
+        mov esp, ebp
+        pop ebp
+        ret
+
+; Linux syscall
+; In: 1) Syscall number
+; 2-7) 6 syscall parameters
+; Out: syscall result
+;      On error returns -ERRORCODE, which has range -133..-1
+linux_syscall:
         push ebp
         mov ebp, esp
         syscall_before
-        mov eax, 4
-        mov ebx, 1
-        mov ecx, newline_str
-        mov edx, newline_len
+        mov eax, [ebp+8]
+        mov ebx, [ebp+12]
+        mov ecx, [ebp+16]
+        mov edx, [ebp+20]
+        mov esi, [ebp+24]
+        mov edi, [ebp+28]
+        mov ebp, [ebp+32]
         int 0x80
         syscall_after
         mov esp, ebp
