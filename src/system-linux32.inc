@@ -133,3 +133,8 @@ read_file:
         mov eax, 0
         ret
 
+
+; Clears memory allocated for file
+; In: 1) Address of memory allocated for file
+finish_file:
+        ret

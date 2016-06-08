@@ -85,7 +85,10 @@ main:
         test eax, eax
         jz .file_error
         add esp, 8
+        push eax
         ccall exec_string, eax, edx
+        pop eax
+        ccall finish_file, eax
         jmp .next_arg
 
     .exec_arg:

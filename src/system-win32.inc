@@ -157,3 +157,9 @@ read_file:
         pop ebp
         ret
 
+; Clears memory allocated for file
+; In: 1) Address of memory allocated for file
+finish_file:
+        mov eax, [esp+4]
+        stdcall [HeapFree], [win32_heap], 0, eax
+        ret
