@@ -134,16 +134,85 @@ linux_syscall:
         pop ebp
         ret
 
+stat64.size equ 0x2c
+
 ; Reads a file into memory
 ; In: 1) File path (null-terminated string)
 ; Out: EAX - memory address of file data (NULL in case of error)
 ;      EDX - length of file data
 read_file:
-        mov eax, 0
+        push ebp
+        mov ebp, esp
+        sub esp, 0x6c
+        .handle equ ebp-0x04
+        .buffer equ ebp-0x08
+        .size equ ebp-0x0c
+        .statbuf equ ebp-0x6c
+
+        ; Open file
+        ccall linux_syscall, 5, [ebp+0x08], 0, 0
+        ; Test if result < 0
+        test eax, eax
+        js .error
+        mov [.handle], eax
+
+        ; stat64 syscall
+        lea eax, [.statbuf]
+        ccall linux_syscall, 197, [.handle], eax
+        test eax, eax
+        jnz .errorclose
+
+        ; Check that file size fits into 32 bits
+        mov eax, [.statbuf+stat64.size+4]
+        test eax, eax
+        jnz .errorclose
+
+        ; Check that file size fits into 31 bits
+        mov eax, [.statbuf+stat64.size]
+        add eax, 4
+        test eax, eax
+        js .errorclose
+
+        mov [.size], eax
+
+        ; Allocate memory
+        ccall linux_syscall, 192, 0, [.size], 0x3, 0x0022, -1, 0
+        cmp eax, 0xffffe000
+        jae .errorclose
+        mov [.buffer], eax
+        mov edx, [.size]
+        mov [eax], edx
+
+        ; Read contents
+        add eax, 4
+        ccall linux_syscall, 3, [.handle], eax, [.statbuf+stat64.size]
+        cmp eax, [.statbuf+stat64.size]
+        jne .errorfree
+
+        ccall linux_syscall, 6, [.handle]
+        mov eax, [.buffer]
+        add eax, 4
+        mov edx, [.statbuf+stat64.size]
+        jmp .ret
+
+    .errorfree:
+        ccall linux_syscall, 91, [.buffer], [.size]
+    .errorclose:
+        ccall linux_syscall, 6, [.handle]
+    .error:
+        xor eax, eax
+    .ret:
+        mov esp, ebp
+        pop ebp
         ret
 
 
 ; Clears memory allocated for file
 ; In: 1) Address of memory allocated for file
 finish_file:
+        mov eax, [esp+4]
+        sub eax, 4
+        mov edx, [eax]
+        ccall linux_syscall, 91, eax, edx
         ret
+
