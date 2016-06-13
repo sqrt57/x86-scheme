@@ -10,6 +10,7 @@ include 'proc.inc'
 include 'unicode.inc'
 include 'core.inc'
 include 'runner.inc'
+include 'memory.inc'
 
 format ELF executable 3
 
@@ -36,6 +37,7 @@ include 'system-linux32.inc'
 unicode_code
 core_code
 runner_code
+memory_code
 
 segment readable
 def_string newline, 10
@@ -43,6 +45,7 @@ def_string newline, 10
 unicode_rodata
 core_rodata
 runner_rodata
+memory_rodata
 
 segment readable writeable
         argc            rd  1
@@ -53,4 +56,5 @@ segment readable writeable
 unicode_bss
 core_bss
 runner_bss
+memory_bss
 

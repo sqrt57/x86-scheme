@@ -5,8 +5,18 @@
 ; This file is part of enscheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
-macro def_string name, str
+macro def_string name, [s]
 {
-    name#_str db str
+common
+    name#_str:
+forward
+    db s
+common
     name#_len = $ - name#_str
 }
+
+macro write name
+{
+    ccall write_string, name#_str, name#_len
+}
+

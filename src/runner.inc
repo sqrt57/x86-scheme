@@ -13,6 +13,10 @@ macro runner_code
 ;     3) argl - array of argument lengths
 ; Out: Result (0 means Ok)
 main:
+        .argc equ ebp+0x08
+        .argv equ ebp+0x0c
+        .argl equ ebp+0x10
+
         ; EBX stores current state:
         ;   0: Normal state
         ;   1: After '-e', executes next argument as string
@@ -24,6 +28,7 @@ main:
         push ebx
         push esi
 
+        ccall memory_init
         ccall core_init
 
         xor ebx, ebx
@@ -31,12 +36,12 @@ main:
 
     .next_arg:
         inc esi
-        cmp esi, [ebp+8]
+        cmp esi, [.argc]
         jnb .end_ok
 
-        mov eax, [ebp+12]
+        mov eax, [.argv]
         mov eax, [eax + esi*4]
-        mov edx, [ebp+16]
+        mov edx, [.argl]
         mov edx, [edx + esi*4]
 
         cmp ebx, 1

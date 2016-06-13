@@ -51,11 +51,20 @@ linux32_init:
         pop ebp
         ret
 
+; Terminates program
+; In: 1) exit code
+exit:
+        mov eax, 1
+        mov ebx, [esp+4]
+        int 0x80
+
+
 ; Allocates memory using brk
 ; In: 1) Size of memory
 ; Out: Address of allocated memory block
 ;      Returns NULL on error
 brk_alloc:
+malloc:
         mov eax, [cur_brk]
         add eax, [esp+4]
         ccall linux_syscall, 45, eax

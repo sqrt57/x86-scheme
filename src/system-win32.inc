@@ -88,6 +88,13 @@ win32_init:
         pop ebp
         ret
 
+; Terminate program
+; In: 1) exit code
+exit:
+        mov eax, [esp+4]
+        stdcall [ExitProcess], eax
+
+
 ; Writes a string to standard output
 ; In: 1) Address of string
 ;     2) Length of string
@@ -111,6 +118,13 @@ read_file:
         push ebp
         mov ebp, esp
         sub esp, 24
+
+        .handle equ ebp-0x04
+        .buffer equ ebp-0x08
+        .size_high equ ebp-0x0c
+        .size_low equ ebp-0x10
+        .bytes_written equ ebp-0x14
+        .result equ ebp-0x1c
         ; Locals:
         ; [EBP-4] File handle
         ; [EBP-8] Allocated memory address
@@ -120,33 +134,33 @@ read_file:
         ; [EBP-24] Result of ReadFile
 
         stdcall [CreateFileA], [ebp+8], 0x80000000, 1, 0, 3, 0, 0
-        mov [ebp-4], eax
+        mov [.handle], eax
         cmp eax, -1
         je .error
 
-        lea edx, [ebp-16]
+        lea edx, [.size_low]
         stdcall [GetFileSizeEx], eax, edx
         test eax, eax
         jz .error
 
-        cmp dword [ebp-12], 0
+        cmp dword [.size_high], 0
         jnz .error
 
         stdcall [HeapAlloc], [win32_heap], 0, [ebp-16]
-        mov [ebp-8], eax
+        mov [.buffer], eax
         test eax, eax
         jz .error
 
-        lea edx, [ebp-20]
-        stdcall [ReadFile], [ebp-4], [ebp-8], [ebp-16], edx, 0
-        mov [ebp-24], eax
-        stdcall [CloseHandle], [ebp-4]
+        lea edx, [.bytes_written]
+        stdcall [ReadFile], [.handle], [.buffer], [.size_low], edx, 0
+        mov [.result], eax
+        stdcall [CloseHandle], [.handle]
 
-        cmp dword [ebp-24], 0
+        cmp dword [.result], 0
         je .error
 
-        mov eax, [ebp-8]
-        mov edx, [ebp-20]
+        mov eax, [.buffer]
+        mov edx, [.size_low]
         jmp .ret
 
     .error:
@@ -163,3 +177,13 @@ finish_file:
         mov eax, [esp+4]
         stdcall [HeapFree], [win32_heap], 0, eax
         ret
+
+; Allocates memory
+; In: 1) Size of memory
+; Out: Address of allocated memory block
+;       NULL if failed
+malloc:
+        mov eax, [esp+4]
+        stdcall [HeapAlloc], [win32_heap], 0, eax
+        ret
+

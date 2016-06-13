@@ -10,6 +10,7 @@ include 'proc.inc'
 include 'unicode.inc'
 include 'core.inc'
 include 'runner.inc'
+include 'memory.inc'
 
 format PE console
 
@@ -35,6 +36,7 @@ include 'system-win32.inc'
 unicode_code
 core_code
 runner_code
+memory_code
 
 section '.rodata' data readable
 def_string newline, 10
@@ -42,6 +44,7 @@ def_string newline, 10
 unicode_rodata
 core_rodata
 runner_rodata
+memory_rodata
 
 section '.bss' data readable writeable
         hStdout         rd  1
@@ -56,6 +59,7 @@ section '.bss' data readable writeable
 unicode_bss
 core_bss
 runner_bss
+memory_bss
         
 section '.idata' import data readable writable
 
