@@ -99,7 +99,6 @@ parse:
 
     .leftbr:
         write core_leftbr
-        ccall write_string, core_leftbr_str, core_leftbr_len
         jmp .next
 
     .rightbr:
