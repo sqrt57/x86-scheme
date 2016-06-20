@@ -50,17 +50,19 @@ exec_string:
 parse:
         ; ESI - address of next character
         ; [.bufend] - address of end of buffer
-        ; [.litstart] - address of start of currently parsed literal
+        ; [.multichar_start] - address of start of currently parsed literal
+        ; [.multichar_length] - length of current literal
         ; [.newlist] - flag "after start of new list"
         ; [.result] - result scheme object
         .bufend equ ebp-0x04
-        .litstart equ ebp-0x08
-        .newlist equ ebp-0x0c
-        .result equ ebp-0x10
+        .multichar_start equ ebp-0x08
+        .multichar_length equ ebp-0x0c
+        .newlist equ ebp-0x10
+        .result equ ebp-0x14
 
         push ebp
         mov ebp, esp
-        sub esp, 0x10
+        sub esp, 0x14
         push esi
         push ebx
 
@@ -73,9 +75,10 @@ parse:
         mov [.newlist], eax
 
     .next:
-        mov [.litstart], esi
+        mov [.multichar_start], esi
         cmp esi, [.bufend]
         jae .endofbuf
+        xor eax, eax
         lodsb
         call .iswhite
         jz .next
@@ -95,7 +98,7 @@ parse:
         cmp eax, '"'
         je .string
 
-        jmp .literal
+        jmp .multichar
 
     .leftbr:
         write core_leftbr
@@ -112,52 +115,49 @@ parse:
     .string:
         cmp esi, [.bufend]
         jae .endofbuf
+        xor eax, eax
         lodsb
         cmp eax, '"'
         jnz .string
-        mov eax, [.litstart]
+        mov eax, [.multichar_start]
         inc eax
         mov edx, esi
         sub edx, eax
         dec edx
-        push eax
-        push edx
+        mov [.multichar_start], eax
+        mov [.multichar_length], edx
         write core_string
-        pop edx
-        pop eax
-        ccall write_string, eax, edx
+        ccall write_string, [.multichar_start], [.multichar_length]
         write core_string_end
         jmp .next
 
-    .literal:
+    .multichar:
         cmp esi, [.bufend]
-        jae .doneliteralnodec
+        jae .done_multichar_nodec
+        xor eax, eax
         lodsb
         cmp eax, '('
-        je .doneliteral
+        je .done_multichar
         cmp eax, ')'
-        je .doneliteral
+        je .done_multichar
         cmp eax, ''''
-        je .doneliteral
+        je .done_multichar
         cmp eax, ';'
-        je .doneliteral
+        je .done_multichar
         cmp eax, '"'
-        je .doneliteral
+        je .done_multichar
         call .iswhite
-        jz .doneliteral
-        jmp .literal
-    .doneliteral:
+        jz .done_multichar
+        jmp .multichar
+    .done_multichar:
         dec esi
-    .doneliteralnodec:
-        mov eax, [.litstart]
+    .done_multichar_nodec:
+        mov eax, [.multichar_start]
         mov edx, esi
         sub edx, eax
-        push eax
-        push edx
+        mov [.multichar_length], edx
         write core_literal
-        pop edx
-        pop eax
-        ccall write_string, eax, edx
+        ccall write_string, [.multichar_start], [.multichar_length]
         write core_string_end
         jmp .next
 
@@ -226,7 +226,7 @@ def_string core_leftbr, 'Left bracket', 0x0a
 def_string core_rightbr, 'Right bracket', 0x0a
 def_string core_quote, 'Quotation character', 0x0a
 def_string core_string, 'String: "'
-def_string core_literal, 'Literal: "'
+def_string core_literal, 'Multi character: "'
 def_string core_string_end, '"', 0x0a
 align 4
 empty_list: dd 0
