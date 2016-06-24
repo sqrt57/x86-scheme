@@ -92,13 +92,13 @@ parse:
         cmp eax, ')'
         je .rightbr
 
-        cmp eax, ''''
-        je .quote
-
         cmp eax, '"'
         je .string
 
-        jmp .multichar
+        call .isdigit
+        jz .number
+
+        jmp .symbol
 
     .leftbr:
         write core_leftbr
@@ -106,10 +106,6 @@ parse:
 
     .rightbr:
         write core_rightbr
-        jmp .next
-
-    .quote:
-        write core_quote
         jmp .next
 
     .string:
@@ -131,32 +127,49 @@ parse:
         write core_string_end
         jmp .next
 
-    .multichar:
+    .number:
         cmp esi, [.bufend]
-        jae .done_multichar_nodec
+        jae .done_number_endbuf
+        xor eax, eax
+        lodsb
+        call .isdigit
+        jz .number
+        dec esi
+    .done_number_endbuf:
+        mov eax, [.multichar_start]
+        mov edx, esi
+        sub edx, eax
+        mov [.multichar_start], eax
+        mov [.multichar_length], edx
+        write core_number
+        ccall write_string, [.multichar_start], [.multichar_length]
+        ccall write_newline
+        jmp .next
+
+    .symbol:
+        cmp esi, [.bufend]
+        jae .done_symbol_endbuf
         xor eax, eax
         lodsb
         cmp eax, '('
-        je .done_multichar
+        je .done_symbol
         cmp eax, ')'
-        je .done_multichar
-        cmp eax, ''''
-        je .done_multichar
+        je .done_symbol
         cmp eax, ';'
-        je .done_multichar
+        je .done_symbol
         cmp eax, '"'
-        je .done_multichar
+        je .done_symbol
         call .iswhite
-        jz .done_multichar
-        jmp .multichar
-    .done_multichar:
+        jz .done_symbol
+        jmp .symbol
+    .done_symbol:
         dec esi
-    .done_multichar_nodec:
+    .done_symbol_endbuf:
         mov eax, [.multichar_start]
         mov edx, esi
         sub edx, eax
         mov [.multichar_length], edx
-        write core_literal
+        write core_symbol
         ccall write_string, [.multichar_start], [.multichar_length]
         write core_string_end
         jmp .next
@@ -218,18 +231,61 @@ parse:
         mov esp, ebp
         pop ebp
         ret
+
+; Compares two strings for equality
+; In: 1) Address of string 1
+;     2) Length of string 1
+;     3) Address of string 2
+;     4) Length of string 2
+; Out: EAX=1 if strings are equal, 0 otherwise
+streq:
+        push ebp
+        mov ebp, esp
+        push esi
+        push edi
+        mov ecx, [ebp+0x0c]
+        mov edx, [ebp+0x14]
+        cmp ecx, edx
+        jne .noteq
+
+        mov esi, [ebp+0x08]
+        mov edi, [ebp+0x10]
+    .next:
+        jcxz .eq
+        lodsb
+        cmp al, byte [edi]
+        jne .noteq
+        inc edi
+        dec ecx
+        jmp .next
+    .eq:
+        mov eax, 1
+        jmp .ret
+    .noteq:
+        xor eax, eax
+    .ret:
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
+        ret
 }
 
 macro core_rodata
 {
 def_string core_leftbr, 'Left bracket', 0x0a
 def_string core_rightbr, 'Right bracket', 0x0a
-def_string core_quote, 'Quotation character', 0x0a
 def_string core_string, 'String: "'
-def_string core_literal, 'Multi character: "'
+def_string core_symbol, 'Symbol: "'
+def_string core_number, 'Number: '
 def_string core_string_end, '"', 0x0a
+def_string core_true, 'True', 0x0a
+def_string core_false, 'False', 0x0a
+def_string core_other, 'Other', 0x0a
 align 4
 empty_list: dd 0
+core_true:  dd 0
+core_false: dd 0
 }
 
 macro core_bss

@@ -13,6 +13,7 @@ forward
     db s
 common
     name#_len = $ - name#_str
+    db 0
 }
 
 macro write name
