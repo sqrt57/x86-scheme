@@ -21,3 +21,8 @@ macro write name
     ccall write_string, name#_str, name#_len
 }
 
+macro align0 n
+{
+    db (($+n-1)/n*n - $) dup(0)
+}
+

@@ -5,6 +5,36 @@
 ; This file is part of enscheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
+object.tag = 0x00
+object.tag.type_mask = 0xff
+object.tag.empty_list = 0x01
+object.tag.cons_cell = 0x02
+object.tag.symbol = 0x03
+object.tag.string = 0x04
+object.tag.signed = 0x05
+object.tag.unsigned = 0x06
+object.tag.bytevector = 0x07
+
+object.tag.fixed = 0x100
+
+object_size.empty_list = 0x04
+object_size.cons_cell = 0x0c
+object_size.symbol = 0x10
+object_size.string = 0x08
+object_size.number = 0x08
+
+cons_cell.car = 0x00
+cons_cell.cdr = 0x04
+
+symbol.value = 0x04
+symbol.next = 0x08
+symbol.name_length = 0x0c
+
+string.length = 0x04
+
+signed.value = 0x04
+unsigned.value = 0x04
+
 macro core_code
 {
 core_init:
@@ -279,11 +309,9 @@ def_string core_string, 'String: "'
 def_string core_symbol, 'Symbol: "'
 def_string core_number, 'Number: '
 def_string core_string_end, '"', 0x0a
-def_string core_true, 'True', 0x0a
-def_string core_false, 'False', 0x0a
-def_string core_other, 'Other', 0x0a
-align 4
-empty_list: dd 0
+
+align0 4
+empty_list: dd object.tag.empty_list or object.tag.fixed
 core_true:  dd 0
 core_false: dd 0
 }
