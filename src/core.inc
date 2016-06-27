@@ -30,8 +30,10 @@ cons_cell.cdr = 0x04
 symbol.value = 0x04
 symbol.next = 0x08
 symbol.name_length = 0x0c
+symbol.name_data = 0x10
 
 string.length = 0x04
+string.data = 0x08
 
 signed.value = 0x04
 unsigned.value = 0x04
@@ -152,12 +154,9 @@ parse:
         mov edx, esi
         sub edx, eax
         dec edx
-        mov [.multichar_start], eax
-        mov [.multichar_length], edx
-        write core_string
-        ccall write_string, [.multichar_start], [.multichar_length]
-        write core_string_end
-        jmp .next
+        ccall memory_create_string, eax, edx
+        mov [.result], eax
+        jmp .done
 
     .number:
         cmp esi, [.bufend]
@@ -198,11 +197,9 @@ parse:
         mov eax, [.multichar_start]
         mov edx, esi
         sub edx, eax
-        mov [.multichar_length], edx
-        write core_symbol
-        ccall write_string, [.multichar_start], [.multichar_length]
-        write core_string_end
-        jmp .next
+        ccall memory_create_symbol, eax, edx
+        mov [.result], eax
+        jmp .done
 
     .endofbuf:
         xor eax, eax
@@ -301,6 +298,10 @@ print:
         mov edx, [eax+object.tag]
         cmp edx, object.tag.unsigned
         je .unsigned
+        cmp edx, object.tag.string
+        je .string
+        cmp edx, object.tag.symbol
+        je .symbol
         write core_unknown_object
         ret
 
@@ -331,6 +332,20 @@ print:
         pop ebp
         ret
         
+    .string:
+        write double_quote
+        mov eax, [ebp+0x08]
+        mov ecx, [eax+string.length]
+        lea edx, [eax+string.data]
+        ccall write_string, edx, ecx
+        write double_quote
+        ret
+
+    .symbol:
+        mov ecx, [eax+symbol.name_length]
+        lea edx, [eax+symbol.name_data]
+        ccall write_string, edx, ecx
+        ret
 
 ; Compares two strings for equality
 ; In: 1) Address of string 1
@@ -378,7 +393,7 @@ def_string core_rightbr, 'Right bracket', 0x0a
 def_string core_string, 'String: "'
 def_string core_symbol, 'Symbol: "'
 def_string core_number, 'Number: '
-def_string core_string_end, '"', 0x0a
+def_string double_quote, '"'
 def_string core_unknown_object, 'Unknown object'
 
 align0 4

@@ -52,6 +52,9 @@ memory_alloc:
         call .alloc_block
         
     .doalloc:
+        ; Align esi to 4 bytes
+        add esi, 3
+        and esi, 0xfffffffc
         mov [eax+block.free], esi
         mov eax, edx
 
@@ -63,12 +66,12 @@ memory_alloc:
         ret
 
     .out_of_memory:
-        ccall write_string, memory_error_oom_str, memory_error_oom_len
+        write memory_error_oom
         ccall write_newline
         ccall exit, 1
 
     .toolarge:
-        ccall write_string, memory_error_large_str, memory_error_large_len
+        write memory_error_large
         ccall write_newline
         ccall exit, 1
 
@@ -100,6 +103,85 @@ memory_create_unsigned:
         mov dword [eax+object.tag], object.tag.unsigned
         mov edx, [esp+0x04]
         mov [eax+unsigned.value], edx
+        ret
+
+; Allocates string on the heap
+; In: 1) Address of string
+;     2) Length of string
+; Out: Allocated scheme object
+; For convenience null byte is added at the end of string
+memory_create_string:
+        push ebp
+        mov ebp, esp
+        push edi
+        mov eax, [ebp+0x0c]
+        add eax, object_size.string + 1
+        ccall memory_alloc, eax
+        mov edi, eax
+        mov dword [edi+object.tag], object.tag.string
+        mov edx, [ebp+0x0c]
+        mov [edi+string.length], edx
+        lea eax, [edi+string.data]
+        ccall memcpy, eax, [ebp+0x08], edx
+        lea eax, [edi+string.data]
+        add eax, [ebp+0x0c]
+        mov byte [eax], 0
+        mov eax, edi
+        pop edi
+        mov esp, ebp
+        pop ebp
+        ret
+
+; Allocates symbol on the heap
+; In: 1) Address of symbol name
+;     2) Length of symbol name
+; Out: Allocated scheme object
+; For convenience null byte is added at the end of symbol name
+memory_create_symbol:
+        push ebp
+        mov ebp, esp
+        push edi
+        mov eax, [ebp+0x0c]
+        add eax, object_size.symbol + 1
+        ccall memory_alloc, eax
+        mov edi, eax
+        mov dword [edi+object.tag], object.tag.symbol
+        mov edx, [ebp+0x0c]
+        mov [edi+symbol.name_length], edx
+        lea eax, [edi+symbol.name_data]
+        ccall memcpy, eax, [ebp+0x08], edx
+        lea eax, [edi+symbol.name_data]
+        add eax, [ebp+0x0c]
+        mov byte [eax], 0
+        mov dword [edi+symbol.value], 0
+        mov dword [edi+symbol.next], 0
+        mov eax, edi
+        pop edi
+        mov esp, ebp
+        pop ebp
+        ret
+
+; Copy block of memory
+; In: 1) Destination address
+;     2) Source address
+;     3) Size of data
+; Out: Destination address
+memcpy:
+        push ebp
+        mov ebp, esp
+        push esi
+        push edi
+
+        mov edi, [ebp+0x08]
+        mov esi, [ebp+0x0c]
+        mov ecx, [ebp+0x10]
+        rep movsb
+
+        mov eax, [ebp+0x08]
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
         ret
 }
 
