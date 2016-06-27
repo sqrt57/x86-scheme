@@ -91,6 +91,16 @@ memory_alloc:
         add esi, [ebp+8]
         cmp esi, ecx
         ret
+
+; Allocates unsigned number on the heap
+; In: 1) Value of unsigned number
+; Out: Allocated scheme object
+memory_create_unsigned:
+        ccall memory_alloc, object_size.unsigned
+        mov dword [eax+object.tag], object.tag.unsigned
+        mov edx, [esp+0x04]
+        mov [eax+unsigned.value], edx
+        ret
 }
 
 macro memory_rodata

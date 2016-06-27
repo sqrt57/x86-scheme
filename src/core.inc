@@ -21,7 +21,8 @@ object_size.empty_list = 0x04
 object_size.cons_cell = 0x0c
 object_size.symbol = 0x10
 object_size.string = 0x08
-object_size.number = 0x08
+object_size.unsigned = 0x08
+object_size.signed = 0x08
 
 cons_cell.car = 0x00
 cons_cell.cdr = 0x04
@@ -62,6 +63,7 @@ exec_string:
         test edx, edx
         jz .ret
         mov esi, edx
+        ccall print, eax
         jmp .next
 
     .ret:
@@ -164,6 +166,7 @@ parse:
         lodsb
         call .isdigit
         jz .number
+    .done_number:
         dec esi
     .done_number_endbuf:
         mov eax, [.multichar_start]
@@ -171,10 +174,7 @@ parse:
         sub edx, eax
         mov [.multichar_start], eax
         mov [.multichar_length], edx
-        write core_number
-        ccall write_string, [.multichar_start], [.multichar_length]
-        ccall write_newline
-        jmp .next
+        jmp .parse_number
 
     .symbol:
         cmp esi, [.bufend]
@@ -262,6 +262,76 @@ parse:
         pop ebp
         ret
 
+    .parse_number:
+        push ebx
+        push esi
+        mov esi, [.multichar_start]
+        mov ecx, [.multichar_length]
+        xor eax, eax
+    .parse_number_digit:
+        jcxz .parse_number_end
+        movzx ebx, byte [esi]
+        sub ebx, '0'
+        mov edx, 10
+        mul edx
+        add eax, ebx
+        inc esi
+        dec ecx
+        jmp .parse_number_digit
+    .parse_number_end:
+        ccall memory_create_unsigned, eax
+        mov [.result], eax
+        pop esi
+        pop ebx
+        jmp .done
+
+; Prints scheme object to stdout
+; In: 1) Address of scheme object
+print:
+        push ebp
+        mov ebp, esp
+        call .inner_print
+        ccall write_newline
+        mov esp, ebp
+        pop ebp
+        ret
+
+    .inner_print:
+        mov eax, [ebp+0x08]
+        mov edx, [eax+object.tag]
+        cmp edx, object.tag.unsigned
+        je .unsigned
+        write core_unknown_object
+        ret
+
+    .unsigned:
+        push ebp
+        mov ebp, esp
+        .unsigned_buf_end equ ebp
+        sub esp, 0x0c
+        push edi
+        lea edi, [.unsigned_buf_end]
+        mov eax, [eax+unsigned.value]
+        mov ecx, 10
+    .unsigned_next:
+        xor edx, edx
+        div ecx
+        add edx, '0'
+        dec edi
+        mov byte [edi], dl
+        test eax, eax
+        jnz .unsigned_next
+
+        lea eax, [.unsigned_buf_end]
+        sub eax, edi
+        ccall write_string, edi, eax
+
+        pop edi
+        mov esp, ebp
+        pop ebp
+        ret
+        
+
 ; Compares two strings for equality
 ; In: 1) Address of string 1
 ;     2) Length of string 1
@@ -309,6 +379,7 @@ def_string core_string, 'String: "'
 def_string core_symbol, 'Symbol: "'
 def_string core_number, 'Number: '
 def_string core_string_end, '"', 0x0a
+def_string core_unknown_object, 'Unknown object'
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
