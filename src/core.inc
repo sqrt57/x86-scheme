@@ -40,9 +40,6 @@ unsigned.value = 0x04
 
 macro core_code
 {
-core_init:
-        ret
-
 ; Executes scheme code
 ; In: 1) Address of string with scheme code
 ;     2) Length of string
@@ -403,6 +400,10 @@ core_false: dd 0
 }
 
 macro core_bss
+{
+}
+
+macro core_rwdata
 {
 }
 

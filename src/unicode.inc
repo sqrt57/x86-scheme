@@ -300,3 +300,7 @@ macro unicode_bss
 {
 }
 
+macro unicode_rwdata
+{
+}
+

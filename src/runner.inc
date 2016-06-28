@@ -28,9 +28,6 @@ main:
         push ebx
         push esi
 
-        ccall memory_init
-        ccall core_init
-
         xor ebx, ebx
         xor esi, esi
 
@@ -139,6 +136,10 @@ def_string file_error, 'Error reading file '''
 }
 
 macro runner_bss
+{
+}
+
+macro runner_rwdata
 {
 }
 

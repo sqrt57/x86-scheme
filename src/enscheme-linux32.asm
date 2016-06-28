@@ -41,11 +41,16 @@ memory_code
 
 segment readable
 def_string newline, 10
-
 unicode_rodata
 core_rodata
 runner_rodata
 memory_rodata
+
+segment readable writeable
+unicode_rwdata
+core_rwdata
+runner_rwdata
+memory_rwdata
 
 segment readable writeable
         argc            rd  1

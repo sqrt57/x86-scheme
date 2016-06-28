@@ -20,12 +20,6 @@ block.start = 0x0c
 
 macro memory_code
 {
-; Initializes heap to empty
-memory_init:
-        mov [mem_freelist], 0
-        mov [mem_alloclist], 0
-        ret
-
 ; Allocates memory from heap
 ; In: 1) Size of memory block
 ; Out: Address of memory block
@@ -193,7 +187,11 @@ def_string memory_error_large, 'Error: too large block of memory requested'
 
 macro memory_bss
 {
-        mem_freelist rd 1
-        mem_alloclist rd 1
+}
+
+macro memory_rwdata
+{
+        mem_freelist    dd  0
+        mem_alloclist   dd  0
 }
 

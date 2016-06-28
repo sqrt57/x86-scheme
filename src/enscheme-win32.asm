@@ -26,9 +26,6 @@ platform_start:
 
         ccall main, [argc], [argv], [argl]
 
-        ; Initialize interpeter
-        ccall core_init
-
         ; Terminate program
         stdcall [ExitProcess], eax
 
@@ -40,12 +37,17 @@ memory_code
 
 section '.rodata' data readable
 def_string newline, 10
-
 unicode_rodata
 core_rodata
 runner_rodata
 memory_rodata
 
+section '.data' data readable writeable
+unicode_rwdata
+core_rwdata
+runner_rwdata
+memory_rwdata
+        
 section '.bss' data readable writeable
         hStdout         rd  1
         hStdin          rd  1
@@ -60,7 +62,7 @@ unicode_bss
 core_bss
 runner_bss
 memory_bss
-        
+
 section '.idata' import data readable writable
 
         dd rva kernel32_ilt, 0, -1, rva kernel32_name, rva kernel32_iat
