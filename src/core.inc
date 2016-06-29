@@ -194,7 +194,7 @@ parse:
         mov eax, [.multichar_start]
         mov edx, esi
         sub edx, eax
-        ccall memory_create_symbol, eax, edx
+        ccall get_symbol, eax, edx
         mov [.result], eax
         jmp .done
 
@@ -344,6 +344,52 @@ print:
         ccall write_string, edx, ecx
         ret
 
+; Find or create symbol by name
+; In: 1) Address of name
+;     2) Length of name
+; Out: Address of symbol
+get_symbol:
+        push ebp
+        mov ebp, esp
+        ccall try_find_symbol, [ebp+0x08], [ebp+0x0c]
+        test eax, eax
+        jnz .done
+        write core_creating_symbol
+        ccall write_string, [ebp+0x08], [ebp+0x0c]
+        write double_quote
+        ccall write_newline
+        ccall memory_create_symbol, [ebp+0x08], [ebp+0x0c]
+    .done:
+        mov esp, ebp
+        pop ebp
+        ret
+
+; Find symbol by name
+; In: 1) Address of name
+;     2) Length of name
+; Out: Address of symbol from collection. Returns null if symbol not found.
+try_find_symbol:
+        push ebp
+        mov ebp, esp
+        push esi
+        mov esi, [symbols]
+    .next:
+        test esi, esi
+        jz .done
+        lea eax, [esi+symbol.name_data]
+        mov edx, [esi+symbol.name_length]
+        ccall streq, eax, edx, [ebp+0x08], [ebp+0x0c]
+        test eax, eax
+        jnz .done
+        mov esi, [esi+symbol.next]
+        jmp .next
+    .done:
+        mov eax, esi
+        pop esi
+        mov esp, ebp
+        pop ebp
+        ret
+
 ; Compares two strings for equality
 ; In: 1) Address of string 1
 ;     2) Length of string 1
@@ -392,6 +438,7 @@ def_string core_symbol, 'Symbol: "'
 def_string core_number, 'Number: '
 def_string double_quote, '"'
 def_string core_unknown_object, 'Unknown object'
+def_string core_creating_symbol, 'Creating symbol: "'
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
@@ -405,5 +452,6 @@ macro core_bss
 
 macro core_rwdata
 {
+        symbols dd  0
 }
 

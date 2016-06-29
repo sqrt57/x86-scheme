@@ -46,6 +46,9 @@ memory_alloc:
         call .alloc_block
         
     .doalloc:
+        mov esi, [eax+block.free]
+        mov edx, esi
+        add esi, [ebp+0x08]
         ; Align esi to 4 bytes
         add esi, 3
         and esi, 0xfffffffc
@@ -83,10 +86,10 @@ memory_alloc:
 
     .check_block:
         mov edx, [eax+block.free]
+        add edx, [ebp+0x08]
         mov ecx, [eax+block.size]
-        mov esi, edx
-        add esi, [ebp+8]
-        cmp esi, ecx
+        add ecx, eax
+        cmp edx, ecx
         ret
 
 ; Allocates unsigned number on the heap
@@ -148,7 +151,9 @@ memory_create_symbol:
         add eax, [ebp+0x0c]
         mov byte [eax], 0
         mov dword [edi+symbol.value], 0
-        mov dword [edi+symbol.next], 0
+        mov eax, [symbols]
+        mov dword [edi+symbol.next], eax
+        mov [symbols], edi
         mov eax, edi
         pop edi
         mov esp, ebp
