@@ -24,8 +24,8 @@ object_size.string = 0x08
 object_size.unsigned = 0x08
 object_size.signed = 0x08
 
-cons_cell.car = 0x00
-cons_cell.cdr = 0x04
+cons_cell.car = 0x04
+cons_cell.cdr = 0x08
 
 symbol.value = 0x04
 symbol.next = 0x08
@@ -84,16 +84,20 @@ parse:
         ; [.multichar_start] - address of start of currently parsed literal
         ; [.multichar_length] - length of current literal
         ; [.newlist] - flag "after start of new list"
-        ; [.result] - result scheme object
+        ; [.current] - address of current cons cell
+        ; [.result] - lexed scheme object
+        ; [.list_result] - whole list result
         .bufend equ ebp-0x04
         .multichar_start equ ebp-0x08
         .multichar_length equ ebp-0x0c
         .newlist equ ebp-0x10
-        .result equ ebp-0x14
+        .current equ ebp-0x14
+        .result equ ebp-0x1c
+        .list_result equ ebp-0x20
 
         push ebp
         mov ebp, esp
-        sub esp, 0x14
+        sub esp, 0x20
         push esi
         push ebx
 
@@ -103,7 +107,9 @@ parse:
         mov [.bufend], eax
         xor eax, eax
         mov [.result], eax
+        mov [.list_result], eax
         mov [.newlist], eax
+        mov [.current], eax
 
     .next:
         mov [.multichar_start], esi
@@ -132,16 +138,64 @@ parse:
         jmp .symbol
 
     .leftbr:
-        write core_leftbr
+        mov eax, [.newlist]
+        test eax, eax
+        jnz .newsublist
+        mov dword [.newlist], 1
+        mov edx, [.current]
+        test edx, edx
+        jz .next
+        ccall memory_create_cons_cell
+        mov edx, [.current]
+        mov [.current], eax
+        mov ecx, [edx+cons_cell.cdr]
+        mov [eax+cons_cell.cdr], ecx
+        mov [edx+cons_cell.cdr], eax
+        jmp .next
+
+    .newsublist:
+        ccall memory_create_cons_cell
+        mov edx, [.current]
+        mov [.current], eax
+        mov [eax+cons_cell.cdr], edx
+        test edx, edx
+        jz .first_cell
+        mov [edx+cons_cell.car], eax
+        jmp .next
+    .first_cell:
+        mov [.list_result], eax
         jmp .next
 
     .rightbr:
-        write core_rightbr
+        mov eax, [.newlist]
+        xor edx, edx
+        mov [.newlist], edx
+        test eax, eax
+        jnz .empty_list
+        mov edx, [.current]
+        test edx, edx
+        jz .rightbr_error
+        mov eax, [edx+cons_cell.cdr]
+        mov dword [edx+cons_cell.cdr], empty_list
+        mov [.current], eax
+        test eax, eax
+        jz .done
         jmp .next
+
+    .empty_list:
+        mov edx, [.current]
+        test edx, edx
+        jz .whole_empty_list
+        mov dword [edx+cons_cell.car], empty_list
+        jmp .next
+
+    .whole_empty_list:
+        mov dword [.result], empty_list
+        jmp .done
 
     .string:
         cmp esi, [.bufend]
-        jae .endofbuf
+        jae .string_error
         xor eax, eax
         lodsb
         cmp eax, '"'
@@ -153,7 +207,7 @@ parse:
         dec edx
         ccall memory_create_string, eax, edx
         mov [.result], eax
-        jmp .done
+        jmp .process_result
 
     .number:
         cmp esi, [.bufend]
@@ -196,16 +250,31 @@ parse:
         sub edx, eax
         ccall get_symbol, eax, edx
         mov [.result], eax
-        jmp .done
+        jmp .process_result
+
+    .rightbr_error:
+        write rightbr_error
+        jmp .skipbuf
+
+    .leftbr_error:
+        write leftbr_error
+        jmp .skipbuf
+
+    .string_error:
+        write string_error
+        jmp .skipbuf
 
     .endofbuf:
-        xor eax, eax
-        mov edx, eax
-        jmp .ret
+        mov eax, [.newlist]
+        test eax, eax
+        jnz .leftbr_error
+        mov eax, [.current]
+        test eax, eax
+        jnz .leftbr_error
+        jmp .skipbuf
 
-    .done:
-        mov eax, [.result]
-        mov edx, esi
+    .skipbuf:
+        xor eax, eax
         jmp .ret
 
     .comment:
@@ -249,7 +318,15 @@ parse:
         cmp eax, eax
         ret
 
+    .done:
+        mov eax, [.list_result]
+        test eax, eax
+        jnz .ret
+        mov eax, [.result]
+        jmp .ret
+
     .ret:
+        mov edx, esi
         pop ebx
         pop esi
         mov esp, ebp
@@ -277,13 +354,49 @@ parse:
         mov [.result], eax
         pop esi
         pop ebx
-        jmp .done
+        jmp .process_result
+
+    .process_result:
+        mov eax, [.newlist]
+        test eax, eax
+        jnz .append_to_newlist
+        mov edx, [.current]
+        test edx, edx
+        jz .done
+        ccall memory_create_cons_cell
+        mov edx, [.current]
+        mov ecx, [edx+cons_cell.cdr]
+        mov [eax+cons_cell.cdr], ecx
+        mov [edx+cons_cell.cdr], eax
+        mov ecx, [.result]
+        mov [eax+cons_cell.car], ecx
+        mov [.current], eax
+        jmp .next
+
+    .append_to_newlist:
+        xor eax, eax
+        mov [.newlist], eax
+        ccall memory_create_cons_cell
+        mov edx, [.current]
+        mov [.current], eax
+        mov ecx, [.result]
+        mov [eax+cons_cell.car], ecx
+        test edx, edx
+        jz .new_whole_list
+        mov [edx+cons_cell.car], eax
+        mov [eax+cons_cell.cdr], edx
+        jmp .next
+
+    .new_whole_list:
+        mov [.list_result], eax
+        jmp .next
 
 ; Prints scheme object to stdout
 ; In: 1) Address of scheme object
 print:
         push ebp
         mov ebp, esp
+        mov eax, [ebp+0x08]
         call .inner_print
         ccall write_newline
         mov esp, ebp
@@ -291,14 +404,18 @@ print:
         ret
 
     .inner_print:
-        mov eax, [ebp+0x08]
         mov edx, [eax+object.tag]
+        and edx, object.tag.type_mask
         cmp edx, object.tag.unsigned
         je .unsigned
         cmp edx, object.tag.string
         je .string
         cmp edx, object.tag.symbol
         je .symbol
+        cmp edx, object.tag.empty_list
+        je .empty_list
+        cmp edx, object.tag.cons_cell
+        je .list
         write core_unknown_object
         ret
 
@@ -330,8 +447,9 @@ print:
         ret
         
     .string:
+        push eax
         write double_quote
-        mov eax, [ebp+0x08]
+        pop eax
         mov ecx, [eax+string.length]
         lea edx, [eax+string.data]
         ccall write_string, edx, ecx
@@ -342,6 +460,45 @@ print:
         mov ecx, [eax+symbol.name_length]
         lea edx, [eax+symbol.name_data]
         ccall write_string, edx, ecx
+        ret
+
+    .empty_list:
+        write empty_list
+        ret
+
+    .list:
+        push eax
+        write leftbr
+    .list_next:
+        mov eax, [esp]
+        mov eax, [eax+cons_cell.car]
+        call .inner_print
+        pop eax
+        mov eax, [eax+cons_cell.cdr]
+        test eax, eax
+        jz .null_error
+        mov edx, [eax+object.tag]
+        and edx, object.tag.type_mask
+        cmp edx, object.tag.cons_cell
+        jnz .finish_list
+        push eax
+        write space
+        jmp .list_next
+    .finish_list:
+        cmp edx, object.tag.empty_list
+        jnz .improper_list
+        write rightbr
+        ret
+    .improper_list:
+        push eax
+        write space_dot_space
+        pop eax
+        call .inner_print
+        write rightbr
+        ret
+
+    .null_error:
+        write null_error
         ret
 
 ; Find or create symbol by name
@@ -431,19 +588,22 @@ streq:
 
 macro core_rodata
 {
-def_string core_leftbr, 'Left bracket', 0x0a
-def_string core_rightbr, 'Right bracket', 0x0a
-def_string core_string, 'String: "'
-def_string core_symbol, 'Symbol: "'
-def_string core_number, 'Number: '
 def_string double_quote, '"'
 def_string core_unknown_object, 'Unknown object'
 def_string core_creating_symbol, 'Creating symbol: "'
+def_string rightbr_error, 'Error: closing bracket without matching ', \
+    'opening bracket', 0x0a
+def_string leftbr_error, 'Error: bracket open, but not closed', 0x0a
+def_string string_error, 'Error: unfinished string literal', 0x0a
+def_string empty_list, '()'
+def_string leftbr, '('
+def_string rightbr, ')'
+def_string space, ' '
+def_string space_dot_space, ' . '
+def_string null_error, ' . *null_reference*)'
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
-core_true:  dd 0
-core_false: dd 0
 }
 
 macro core_bss

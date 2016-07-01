@@ -6,6 +6,7 @@
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
 memory_block_size = 1024*1024
+max_object_size = 4*1024
 block.size = 0x00
 block.next = 0x04
 block.free = 0x08
@@ -31,7 +32,7 @@ memory_alloc:
         push esi
         push edi
 
-        cmp dword [ebp+8], memory_block_size-block.start
+        cmp dword [ebp+8], max_object_size
         ja .toolarge
 
         mov eax, [mem_alloclist]
@@ -158,6 +159,16 @@ memory_create_symbol:
         pop edi
         mov esp, ebp
         pop ebp
+        ret
+
+; Allocates new cons cell
+; Out: Allocated scheme object
+memory_create_cons_cell:
+        ccall memory_alloc, object_size.cons_cell
+        mov dword [eax+object.tag], object.tag.cons_cell
+        xor edx, edx
+        mov [eax+cons_cell.car], edx
+        mov [eax+cons_cell.cdr], edx
         ret
 
 ; Copy block of memory
