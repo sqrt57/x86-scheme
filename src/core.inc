@@ -84,6 +84,8 @@ parse:
         ; [.multichar_start] - address of start of currently parsed literal
         ; [.multichar_length] - length of current literal
         ; [.newlist] - flag "after start of new list"
+        ; [.afterdot] - flag "after dot"
+        ; [.afterdotobj] - flag "after object after dot"
         ; [.current] - address of current cons cell
         ; [.result] - lexed scheme object
         ; [.list_result] - whole list result
@@ -91,13 +93,15 @@ parse:
         .multichar_start equ ebp-0x08
         .multichar_length equ ebp-0x0c
         .newlist equ ebp-0x10
-        .current equ ebp-0x14
-        .result equ ebp-0x1c
-        .list_result equ ebp-0x20
+        .afterdot equ ebp-0x14
+        .afterdotobj equ ebp-0x18
+        .current equ ebp-0x1c
+        .result equ ebp-0x20
+        .list_result equ ebp-0x24
 
         push ebp
         mov ebp, esp
-        sub esp, 0x20
+        sub esp, 0x24
         push esi
         push ebx
 
@@ -109,6 +113,8 @@ parse:
         mov [.result], eax
         mov [.list_result], eax
         mov [.newlist], eax
+        mov [.afterdot], eax
+        mov [.afterdotobj], eax
         mov [.current], eax
 
     .next:
@@ -138,6 +144,12 @@ parse:
         jmp .symbol
 
     .leftbr:
+        mov eax, [.afterdot]
+        test eax, eax
+        jnz .error_leftbr_after_dot
+        mov eax, [.afterdotobj]
+        test eax, eax
+        jnz .error_leftbr_after_dotobj
         mov eax, [.newlist]
         test eax, eax
         jnz .newsublist
@@ -167,6 +179,12 @@ parse:
         jmp .next
 
     .rightbr:
+        mov eax, [.afterdot]
+        test eax, eax
+        jnz .error_rightbr_after_dot
+        mov eax, [.afterdotobj]
+        test eax, eax
+        jnz .close_dot_obj
         mov eax, [.newlist]
         xor edx, edx
         mov [.newlist], edx
@@ -178,6 +196,13 @@ parse:
         mov eax, [edx+cons_cell.cdr]
         mov dword [edx+cons_cell.cdr], empty_list
         mov [.current], eax
+        test eax, eax
+        jz .done
+        jmp .next
+
+    .close_dot_obj:
+        mov dword [.afterdotobj], 0
+        mov eax, [.current]
         test eax, eax
         jz .done
         jmp .next
@@ -248,6 +273,12 @@ parse:
         mov eax, [.multichar_start]
         mov edx, esi
         sub edx, eax
+        cmp edx, 1
+        jnz .get_symbol
+        cmp byte [eax], '.'
+        jnz .get_symbol
+        jmp .dot
+    .get_symbol:
         ccall get_symbol, eax, edx
         mov [.result], eax
         jmp .process_result
@@ -269,6 +300,12 @@ parse:
         test eax, eax
         jnz .leftbr_error
         mov eax, [.current]
+        test eax, eax
+        jnz .leftbr_error
+        mov eax, [.afterdot]
+        test eax, eax
+        jnz .leftbr_error
+        mov eax, [.afterdotobj]
         test eax, eax
         jnz .leftbr_error
         jmp .skipbuf
@@ -357,6 +394,12 @@ parse:
         jmp .process_result
 
     .process_result:
+        mov eax, [.afterdot]
+        test eax, eax
+        jnz .object_to_cdr
+        mov eax, [.afterdotobj]
+        test eax, eax
+        jnz .error_second_object_after_dot
         mov eax, [.newlist]
         test eax, eax
         jnz .append_to_newlist
@@ -371,6 +414,16 @@ parse:
         mov ecx, [.result]
         mov [eax+cons_cell.car], ecx
         mov [.current], eax
+        jmp .next
+
+    .object_to_cdr:
+        mov dword [.afterdot], 0
+        mov dword [.afterdotobj], 1
+        mov edx, [.current]
+        mov ecx, [edx+cons_cell.cdr]
+        mov eax, [.result]
+        mov [edx+cons_cell.cdr], eax
+        mov [.current], ecx
         jmp .next
 
     .append_to_newlist:
@@ -390,6 +443,50 @@ parse:
     .new_whole_list:
         mov [.list_result], eax
         jmp .next
+
+    .dot:
+        mov eax, [.newlist]
+        test eax, eax
+        jnz .error_dot_after_leftbr
+        mov eax, [.afterdot]
+        test eax, eax
+        jnz .error_dot_after_dot
+        mov eax, [.afterdotobj]
+        test eax, eax
+        jnz .error_dot_after_dot
+        mov edx, [.current]
+        test edx, edx
+        jz .error_dot_outside_list
+        mov dword [.afterdot], 1
+        jmp .next
+
+    .error_dot_after_leftbr:
+        write error_dot_after_leftbr
+        jmp .skipbuf
+
+    .error_dot_after_dot:
+        write error_dot_after_dot
+        jmp .skipbuf
+
+    .error_dot_outside_list:
+        write error_dot_outside_list
+        jmp .skipbuf
+
+    .error_leftbr_after_dot:
+        write error_leftbr_after_dot
+        jmp .skipbuf
+
+    .error_leftbr_after_dotobj:
+        write error_leftbr_after_dotobj
+        jmp .skipbuf
+
+    .error_rightbr_after_dot:
+        write error_rightbr_after_dot
+        jmp .skipbuf
+
+    .error_second_object_after_dot:
+        write error_second_object_after_dot
+        jmp .skipbuf
 
 ; Prints scheme object to stdout
 ; In: 1) Address of scheme object
@@ -601,6 +698,17 @@ def_string rightbr, ')'
 def_string space, ' '
 def_string space_dot_space, ' . '
 def_string null_error, ' . *null_reference*)'
+def_string error_dot_after_leftbr, 'Error: dot after left bracket', 0x0a
+def_string error_dot_after_dot, 'Error: dot after dot', 0x0a
+def_string error_dot_outside_list, 'Error: dot outside list', 0x0a
+def_string error_leftbr_after_dot, 'Error: list nested inside dotted cdr ', \
+    'not supported', 0x0a
+def_string error_leftbr_after_dotobj, 'Error: right bracket expected after ', \
+    'dot and scheme object', 0x0a
+def_string error_rightbr_after_dot, 'Error: scheme object expected ', \
+    'after dot', 0x0a
+def_string error_second_object_after_dot, 'Error: scheme object expected ', \
+    'after dot', 0x0a
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
