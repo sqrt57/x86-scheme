@@ -14,6 +14,11 @@ object.tag.string = 0x04
 object.tag.signed = 0x05
 object.tag.unsigned = 0x06
 object.tag.bytevector = 0x07
+object.tag.native_code = 0x08
+object.tag.native_special = 0x09
+object.tag.lambda = 0x0a
+object.tag.continuation = 0x0b
+object.tag.environment = 0x0c
 
 object.tag.fixed = 0x100
 
@@ -37,6 +42,8 @@ string.data = 0x08
 
 signed.value = 0x04
 unsigned.value = 0x04
+
+native_code.code = 0x04
 
 macro core_code
 {
@@ -62,6 +69,7 @@ exec_string:
         test edx, edx
         jz .ret
         mov esi, edx
+        ccall exec, eax
         ccall print, eax
         jmp .next
 
@@ -595,7 +603,7 @@ print:
         ret
 
     .null_error:
-        write null_error
+        write printer_null_error
         ret
 
 ; Find or create symbol by name
@@ -605,13 +613,9 @@ print:
 get_symbol:
         push ebp
         mov ebp, esp
-        ccall try_find_symbol, [ebp+0x08], [ebp+0x0c]
+        ccall try_find_symbol, [symbols], [ebp+0x08], [ebp+0x0c]
         test eax, eax
         jnz .done
-        write core_creating_symbol
-        ccall write_string, [ebp+0x08], [ebp+0x0c]
-        write double_quote
-        ccall write_newline
         ccall memory_create_symbol, [ebp+0x08], [ebp+0x0c]
     .done:
         mov esp, ebp
@@ -619,20 +623,21 @@ get_symbol:
         ret
 
 ; Find symbol by name
-; In: 1) Address of name
-;     2) Length of name
+; In: 1) Symbols list
+;     2) Address of name
+;     3) Length of name
 ; Out: Address of symbol from collection. Returns null if symbol not found.
 try_find_symbol:
         push ebp
         mov ebp, esp
         push esi
-        mov esi, [symbols]
+        mov esi, [ebp+0x08]
     .next:
         test esi, esi
         jz .done
         lea eax, [esi+symbol.name_data]
         mov edx, [esi+symbol.name_length]
-        ccall streq, eax, edx, [ebp+0x08], [ebp+0x0c]
+        ccall streq, eax, edx, [ebp+0x0c], [ebp+0x10]
         test eax, eax
         jnz .done
         mov esi, [esi+symbol.next]
@@ -681,13 +686,25 @@ streq:
         mov esp, ebp
         pop ebp
         ret
+
+; Executes scheme object as code
+; In: 1) Scheme expression
+; Out: Expression result
+exec:
+        push ebp
+        mov ebp, esp
+
+        mov eax, [ebp+0x08]
+
+        mov esp, ebp
+        pop ebp
+        ret
 }
 
 macro core_rodata
 {
 def_string double_quote, '"'
 def_string core_unknown_object, 'Unknown object'
-def_string core_creating_symbol, 'Creating symbol: "'
 def_string rightbr_error, 'Error: closing bracket without matching ', \
     'opening bracket', 0x0a
 def_string leftbr_error, 'Error: bracket open, but not closed', 0x0a
@@ -697,7 +714,7 @@ def_string leftbr, '('
 def_string rightbr, ')'
 def_string space, ' '
 def_string space_dot_space, ' . '
-def_string null_error, ' . *null_reference*)'
+def_string printer_null_error, ' . *null_reference*)'
 def_string error_dot_after_leftbr, 'Error: dot after left bracket', 0x0a
 def_string error_dot_after_dot, 'Error: dot after dot', 0x0a
 def_string error_dot_outside_list, 'Error: dot outside list', 0x0a
@@ -712,6 +729,11 @@ def_string error_second_object_after_dot, 'Error: scheme object expected ', \
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
+def_symbol 'qwe', hello
+def_symbol 'asd', hello
+def_scheme_string hello, 'Hello, ', 'world!'
+builtin_symbols:
+        dd  builtin_symbols_prev
 }
 
 macro core_bss
