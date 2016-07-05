@@ -8,6 +8,8 @@
 include 'proc.inc'
 include 'macros.inc'
 
+builtin_symbols_prev = 0
+
 object.tag = 0x00
 object.tag.type_mask = 0xff
 object.tag.empty_list = 0x01
@@ -663,6 +665,8 @@ print:
         ret
 
     .inner_print:
+        test eax, eax
+        jz .null
         mov edx, [eax+object.tag]
         and edx, object.tag.type_mask
         cmp edx, object.tag.unsigned
@@ -735,7 +739,7 @@ print:
         pop eax
         mov eax, [eax+cons_cell.cdr]
         test eax, eax
-        jz .null_error
+        jz .improper_list
         mov edx, [eax+object.tag]
         and edx, object.tag.type_mask
         cmp edx, object.tag.cons_cell
@@ -756,8 +760,8 @@ print:
         write rightbr
         ret
 
-    .null_error:
-        write printer_null_error
+    .null:
+        write null_ref
         ret
 
 ; Find or create symbol by name
@@ -768,6 +772,9 @@ get_symbol:
         push ebp
         mov ebp, esp
         ccall try_find_symbol, [symbols], [ebp+0x08], [ebp+0x0c]
+        test eax, eax
+        jnz .done
+        ccall try_find_symbol, builtin_symbols, [ebp+0x08], [ebp+0x0c]
         test eax, eax
         jnz .done
         ccall memory_create_symbol, [ebp+0x08], [ebp+0x0c]
@@ -849,7 +856,44 @@ exec:
         mov ebp, esp
 
         mov eax, [ebp+0x08]
+        test eax, eax
+        jz .exec_null
+        mov edx, [eax+object.tag]
+        and edx, object.tag.type_mask
+        cmp edx, object.tag.unsigned
+        je .ret
+        cmp edx, object.tag.string
+        je .ret
+        cmp edx, object.tag.symbol
+        je .symbol
+        write exec_unknown
+        ccall print, [ebp+0x08]
+        xor eax, eax
+        jmp .ret
 
+    .symbol:
+        mov edx, [eax+symbol.value]
+        test edx, edx
+        jz .unbound_symbol
+        mov eax, edx
+        jmp .ret
+
+    .exec_null:
+        write exec_null
+        xor eax, eax
+        jmp .ret
+
+    .unbound_symbol:
+        write unbound_symbol
+        mov eax, [ebp+0x08]
+        mov ecx, [eax+symbol.name_length]
+        lea edx, [eax+symbol.name_data]
+        ccall write_string, edx, ecx
+        ccall write_newline
+        xor eax, eax
+        jmp .ret
+
+    .ret:
         mov esp, ebp
         pop ebp
         ret
@@ -898,12 +942,10 @@ memory_alloc:
 
     .out_of_memory:
         write memory_error_oom
-        ccall write_newline
         ccall exit, 1
 
     .toolarge:
         write memory_error_large
-        ccall write_newline
         ccall exit, 1
 
     .alloc_block:
@@ -1045,28 +1087,31 @@ def_string leftbr, '('
 def_string rightbr, ')'
 def_string space, ' '
 def_string space_dot_space, ' . '
-def_string printer_null_error, ' . *null_reference*)'
-def_string error_dot_after_leftbr, 'Error: dot after left bracket', 0x0a
-def_string error_dot_after_dot, 'Error: dot after dot', 0x0a
-def_string error_dot_outside_list, 'Error: dot outside list', 0x0a
-def_string error_leftbr_after_dot, 'Error: list nested inside dotted cdr ', \
-    'not supported', 0x0a
-def_string error_leftbr_after_dotobj, 'Error: right bracket expected after ', \
-    'dot and scheme object', 0x0a
-def_string error_rightbr_after_dot, 'Error: scheme object expected ', \
+def_string null_ref, '*NULL_REFERENCE*'
+def_string error_dot_after_leftbr, 'Parse error: dot after left bracket', 0x0a
+def_string error_dot_after_dot, 'Parse error: dot after dot', 0x0a
+def_string error_dot_outside_list, 'Parse error: dot outside list', 0x0a
+def_string error_leftbr_after_dot, 'Parse error: list nested inside ', \
+    'dotted cdr not supported', 0x0a
+def_string error_leftbr_after_dotobj, 'Parse error: right bracket expected ', \
+    'after dot and scheme object', 0x0a
+def_string error_rightbr_after_dot, 'Parse error: scheme object expected ', \
     'after dot', 0x0a
-def_string error_second_object_after_dot, 'Error: scheme object expected ', \
-    'after dot', 0x0a
-def_string memory_error_oom, 'Error: out of memory'
-def_string memory_error_large, 'Error: too large block of memory requested'
+def_string error_second_object_after_dot, 'Parse error: scheme object ', \
+    'expected after dot', 0x0a
+def_string memory_error_oom, 'Memory error: out of memory', 0x0a
+def_string memory_error_large, 'Memory error: too large block of memory ', \
+    'requested', 0x0a
+def_string exec_null, 'Exec error: null expression', 0x0a
+def_string exec_unknown, 'Exec error: cannot execute expression: '
+def_string unbound_symbol, 'Exec error: unbound symbol: '
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
 def_symbol 'qwe', hello
 def_symbol 'asd', hello
 def_scheme_string hello, 'Hello, ', 'world!'
-builtin_symbols:
-        dd  builtin_symbols_prev
+builtin_symbols = builtin_symbols_prev
 
 PLATFORM_DATA
 

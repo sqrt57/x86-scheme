@@ -36,6 +36,7 @@ local code_start, name_start, name_length, symbol_start
         dd  value
         dd  builtin_symbols_prev
         builtin_symbols_prev = symbol_start
+        dd  name_length
     name_start:
         db  str
         name_length = $-name_start
