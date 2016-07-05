@@ -1,3 +1,4 @@
+; vim: filetype=asm syntax=fasm
 
 ; enscheme executable for Win32
 ;

@@ -1,4 +1,4 @@
-; vim: filetype=asm
+; vim: filetype=asm syntax=fasm
 
 ; Scheme interpreter platform-independent core code
 ;
@@ -491,7 +491,7 @@ parse:
         cmp eax, 0x20
         jne .iswhite1
         ret
-    .iswhite1:    
+    .iswhite1:
         cmp eax, 0x09
         jae .iswhite2
         ret
@@ -704,7 +704,7 @@ print:
         mov esp, ebp
         pop ebp
         ret
-        
+
     .string:
         push eax
         write double_quote
@@ -878,7 +878,7 @@ memory_alloc:
         call .check_block
         jb .doalloc
         call .alloc_block
-        
+
     .doalloc:
         mov esi, [eax+block.free]
         mov edx, esi

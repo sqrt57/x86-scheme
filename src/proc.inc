@@ -1,4 +1,4 @@
-; vim: filetype=asm
+; vim: filetype=asm syntax=fasm
 
 ; Macros for calling procedures
 ;
@@ -15,7 +15,7 @@
 ; 6) Result is returned in EAX and EDX if needed
 ; 7) Direction flag must be cleared on call and return
 ; 8) Other arithmetic flags are scratch (must not be saved by callee)
-; 
+;
 ; x87, MMX, XMM, YMM, ZMM register usage is not specified
 
 macro ccall proc, [arg]

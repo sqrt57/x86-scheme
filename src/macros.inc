@@ -1,4 +1,4 @@
-; vim: filetype=asm
+; vim: filetype=asm syntax=fasm
 
 ; Miscellaneous macros
 ;
