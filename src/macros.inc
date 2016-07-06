@@ -60,3 +60,12 @@ common
         align0 4
 }
 
+macro def_proc str, value
+{
+local procedure_object
+    procedure_object:
+        dd  object.tag.native_procedure or object.tag.fixed
+        dd  value
+def_symbol str, procedure_object
+}
+

@@ -1,5 +1,6 @@
 ; Testing comment
+123
 qwe
-wrong-symbol
 asd
+(hello 1 2)
 

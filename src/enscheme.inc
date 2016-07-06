@@ -11,7 +11,9 @@ include 'macros.inc'
 builtin_symbols_prev = 0
 
 object.tag = 0x00
-object.tag.type_mask = 0xff
+object.tag_bits = 4
+object.tag_ceiling = 1 shl object.tag_bits
+object.tag.type_mask = (1 shl object.tag_bits) - 1
 object.tag.empty_list = 0x01
 object.tag.cons_cell = 0x02
 object.tag.symbol = 0x03
@@ -19,11 +21,10 @@ object.tag.string = 0x04
 object.tag.signed = 0x05
 object.tag.unsigned = 0x06
 object.tag.bytevector = 0x07
-object.tag.native_code = 0x08
-object.tag.native_special = 0x09
-object.tag.lambda = 0x0a
-object.tag.continuation = 0x0b
-object.tag.environment = 0x0c
+object.tag.environment = 0x08
+; Continuation, has 2 additional fields
+object.tag.continuation = 0x09
+object.tag.native_procedure = 0x0a
 
 object.tag.fixed = 0x100
 
@@ -31,8 +32,11 @@ object_size.empty_list = 0x04
 object_size.cons_cell = 0x0c
 object_size.symbol = 0x10
 object_size.string = 0x08
-object_size.unsigned = 0x08
 object_size.signed = 0x08
+object_size.unsigned = 0x08
+object_size.environment = 0x0c
+object_size.continuation = 0x10
+ovject_size.native_procedure = 0x08
 
 cons_cell.car = 0x04
 cons_cell.cdr = 0x08
@@ -48,7 +52,14 @@ string.data = 0x08
 signed.value = 0x04
 unsigned.value = 0x04
 
-native_code.code = 0x04
+environment.parent = 0x04
+environment.bindings = 0x08
+
+continuation.code = 0x04
+continuation.next = 0x08
+continuation.arg = 0x0c
+
+native_procedure.code = 0x04
 
 memory_block_size = 1024*1024
 max_object_size = 4*1024
@@ -178,18 +189,17 @@ main:
     .error_arg:
         push eax
         push edx
-        ccall write_string, incorrect_arg_str, incorrect_arg_len
+        write incorrect_arg
         pop edx
         pop eax
         ccall write_string, eax, edx
-        ccall write_string, quote_str, quote_len
+        write double_quote
         ccall write_newline
         mov eax, 1
         jmp .end
 
     .error_exec_state:
-        ccall write_string, expr_expected_str, expr_expected_len
-        ccall write_newline
+        write expr_expected
         mov eax, 1
         jmp .end
 
@@ -198,7 +208,7 @@ main:
         pop edx
         pop eax
         ccall write_string, eax, edx
-        ccall write_string, quote_str, quote_len
+        write double_quote
         ccall write_newline
         mov eax, 1
         jmp .end
@@ -225,9 +235,18 @@ exec_string:
         test edx, edx
         jz .ret
         mov esi, edx
-        ccall exec, eax
+        ccall eval, eax
+        test eax, eax
+        jz .error
         ccall print, eax
         jmp .next
+
+    .error:
+        push edx
+        write exec_error_with_arg
+        pop edx
+        ccall print, edx
+        jmp .ret
 
     .ret:
         pop edi
@@ -851,52 +870,164 @@ streq:
 ; Executes scheme object as code
 ; In: 1) Scheme expression
 ; Out: Expression result
-exec:
+eval:
         push ebp
         mov ebp, esp
+        sub esp, 0x10
 
+        ; Continuation to execute
+        .current_continuation equ ebp-0x04
+        ; First argument value passed to current continuation
+        .argument equ ebp-0x08
+        ; Rest arguments values passed to current continuation
+        .args equ ebp-0x0c
+        ; First argument goes into .argument and rest into .args.
+        ; Evaluation environment. If NULL then global environment.
+        .environment equ ebp-0x10
+
+        xor eax, eax
+        mov [.args], eax
+        mov [.environment], eax
         mov eax, [ebp+0x08]
-        test eax, eax
-        jz .exec_null
-        mov edx, [eax+object.tag]
-        and edx, object.tag.type_mask
-        cmp edx, object.tag.unsigned
-        je .ret
-        cmp edx, object.tag.string
-        je .ret
-        cmp edx, object.tag.symbol
-        je .symbol
-        write exec_unknown
-        ccall print, [ebp+0x08]
+        mov [.argument], eax
+        ccall memory_create_continuation, .return_code
+        mov [.current_continuation], eax
+        ccall memory_create_continuation, .eval
+        mov edx, [.current_continuation]
+        mov [eax+continuation.next], edx
+        mov [.current_continuation], eax
+
+    .next:
+        mov eax, [.current_continuation]
+        jmp dword [eax+continuation.code]
+
+    .process_error:
+        mov edx, eax
         xor eax, eax
         jmp .ret
 
+    .eval:
+        mov eax, [.args]
+        test eax, eax
+        jnz .eval_many_args
+        mov eax, [.argument]
+        test eax, eax
+        jz .eval_zero_args
+        mov edx, [eax+object.tag]
+        and edx, object.tag.type_mask
+        jmp dword [.eval_dispatch+edx*4]
+
+    .eval_zero_args:
+        write eval_zero_args
+        xor eax, eax
+        jmp .ret
+
+    .eval_many_args:
+        write eval_many_args
+        xor eax, eax
+        jmp .ret
+
+    .return_code:
+        mov eax, [.argument]
+        jmp .ret
+        
+    .ret:
+        mov esp, ebp
+        pop ebp
+        ret
+
+    .unknown_type:
+        write eval_unknown
+        ccall print, [.argument]
+        xor eax, eax
+        jmp .process_error
+
+    .self:
+        ; Retrieve next continuation passing to it the same argument
+        mov eax, [.current_continuation]
+        mov eax, [eax+continuation.next]
+        mov [.current_continuation], eax
+        jmp .next
+
     .symbol:
+        ; Value bound to symbol becomes argument to next continuation
+        mov eax, [.argument]
         mov edx, [eax+symbol.value]
         test edx, edx
         jz .unbound_symbol
-        mov eax, edx
-        jmp .ret
-
-    .exec_null:
-        write exec_null
-        xor eax, eax
-        jmp .ret
-
+        mov [.argument], edx
+        ; Retrieve next continuation
+        mov eax, [.current_continuation]
+        mov eax, [eax+continuation.next]
+        mov [.current_continuation], eax
+        jmp .next
     .unbound_symbol:
         write unbound_symbol
-        mov eax, [ebp+0x08]
+        mov eax, [.argument]
         mov ecx, [eax+symbol.name_length]
         lea edx, [eax+symbol.name_data]
         ccall write_string, edx, ecx
         ccall write_newline
         xor eax, eax
-        jmp .ret
+        jmp .process_error
 
-    .ret:
-        mov esp, ebp
-        pop ebp
-        ret
+    .cons_cell:
+        ; Procedure or special form call
+        ; Apply procedure or special form to CDR of current cons cell
+        ccall memory_create_continuation, .apply_procedure_or_special
+        mov edx, [.current_continuation]
+        mov edx, [edx+continuation.next]
+        mov [eax+continuation.next], edx
+        mov edx, [.argument]
+        mov edx, [edx+cons_cell.cdr]
+        mov [eax+continuation.arg], edx
+        mov [.current_continuation], eax
+        ; But before we evaluate CAR of this cons cell
+        ccall memory_create_continuation, .eval
+        mov edx, [.current_continuation]
+        mov [eax+continuation.next], edx
+        mov [.current_continuation], eax
+        ; Pass CAR of current cons cell as argument
+        mov edx, [.argument]
+        mov edx, [edx+cons_cell.car]
+        mov [.argument], edx
+        jmp .next
+
+    .apply_procedure_or_special:
+        ; TODO process special forms
+        ; TODO process arguments
+        mov eax, [.argument]
+        mov edx, [eax+object.tag]
+        and edx, object.tag.type_mask
+        cmp edx, object.tag.native_procedure
+        je .call_native_procedure
+        write eval_apply_wrong_type
+        xor eax, eax
+        jmp .process_error
+    .call_native_procedure:
+        call dword [eax+native_procedure.code]
+        mov [.argument], eax
+        mov [.args], edx
+        mov eax, [.current_continuation]
+        mov eax, [eax+continuation.next]
+        mov [.current_continuation], eax
+        jmp .next
+
+    align0 4
+    .eval_dispatch:
+        dd  .unknown_type   ; Zero tag - incorrect object
+        dd  .unknown_type   ; Empty list
+        dd  .cons_cell
+        dd  .symbol
+        dd  .self           ; String
+        dd  .self           ; Signed number
+        dd  .self           ; Unsigned number
+        dd  .self           ; Bytevector
+        dd  .unknown_type   ; Environment
+        dd  .unknown_type   ; Continuation
+        dd  .unknown_type   ; Native procedure
+        ; Pad table to object.tag_ceiling entries
+        dd  object.tag_ceiling-($-.eval_dispatch)/4  dup(.unknown_type)
 
 ; Allocates memory from heap
 ; In: 1) Size of memory block
@@ -1046,6 +1177,19 @@ memory_create_cons_cell:
         mov [eax+cons_cell.cdr], edx
         ret
 
+; Allocates new continuation
+; In: 1) Code field
+; Out: Allocated scheme object
+memory_create_continuation:
+        ccall memory_alloc, object_size.continuation
+        mov dword [eax+object.tag], object.tag.continuation
+        mov edx, [esp+0x04]
+        mov [eax+continuation.code], edx
+        xor edx, edx
+        mov [eax+continuation.next], edx
+        mov [eax+continuation.arg], edx
+        ret
+
 ; Copy block of memory
 ; In: 1) Destination address
 ;     2) Source address
@@ -1069,19 +1213,25 @@ memcpy:
         pop ebp
         ret
 
+hello_world:
+        write hello_world
+        mov eax, some_result
+        xor edx, edx
+        ret
+
 PLATFORM_RDATA
 
 def_string newline, 0x0a
-def_string incorrect_arg, 'Error: incorrect argument '''
-def_string quote, ''''
-def_string expr_expected, 'Error: expected scheme expression after ''-e'''
-def_string file_error, 'Error reading file '''
+def_string incorrect_arg, 'Error: incorrect command-line argument "'
+def_string expr_expected, 'Error: expected scheme expression ', \
+    'after "-e" in command-line arguments', 0x0a
+def_string file_error, 'Error reading file "'
 def_string double_quote, '"'
 def_string core_unknown_object, 'Unknown object'
-def_string rightbr_error, 'Error: closing bracket without matching ', \
+def_string rightbr_error, 'Parse error: closing bracket without matching ', \
     'opening bracket', 0x0a
-def_string leftbr_error, 'Error: bracket open, but not closed', 0x0a
-def_string string_error, 'Error: unfinished string literal', 0x0a
+def_string leftbr_error, 'Parse error: bracket open, but not closed', 0x0a
+def_string string_error, 'Parse error: unfinished string literal', 0x0a
 def_string empty_list, '()'
 def_string leftbr, '('
 def_string rightbr, ')'
@@ -1102,15 +1252,22 @@ def_string error_second_object_after_dot, 'Parse error: scheme object ', \
 def_string memory_error_oom, 'Memory error: out of memory', 0x0a
 def_string memory_error_large, 'Memory error: too large block of memory ', \
     'requested', 0x0a
-def_string exec_null, 'Exec error: null expression', 0x0a
-def_string exec_unknown, 'Exec error: cannot execute expression: '
-def_string unbound_symbol, 'Exec error: unbound symbol: '
+def_string eval_zero_args, 'Eval error: required one argument to eval', 0x0a
+def_string eval_many_args, 'Eval error: cannot eval many args', 0x0a
+def_string eval_unknown, 'Eval error: cannot execute expression: '
+def_string unbound_symbol, 'Eval error: unbound symbol: '
+def_string eval_apply_wrong_type, 'Eval error: cannot apply object ', \
+    'because of wrong type', 0x0a
+def_string exec_error_with_arg, 'Execution aborted with the following error: '
+def_string hello_world, 'Hello, world!', 0x0a
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
-def_symbol 'qwe', hello
-def_symbol 'asd', hello
-def_scheme_string hello, 'Hello, ', 'world!'
+def_proc 'hello', hello_world
+def_symbol 'qwe', qwerty
+def_symbol 'asd', qwerty
+def_scheme_string qwerty, 'Qwerty'
+def_scheme_string some_result, 'Some result'
 builtin_symbols = builtin_symbols_prev
 
 PLATFORM_DATA
