@@ -1,6 +1,5 @@
-; Testing comment
-123
+(hello)
+1
 qwe
-asd
-(hello 1 2)
+hello
 

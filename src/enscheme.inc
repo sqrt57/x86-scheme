@@ -22,7 +22,7 @@ object.tag.signed = 0x05
 object.tag.unsigned = 0x06
 object.tag.bytevector = 0x07
 object.tag.environment = 0x08
-; Continuation, has 2 additional fields
+; Continuation, has 4 additional fields
 object.tag.continuation = 0x09
 object.tag.native_procedure = 0x0a
 
@@ -35,7 +35,7 @@ object_size.string = 0x08
 object_size.signed = 0x08
 object_size.unsigned = 0x08
 object_size.environment = 0x0c
-object_size.continuation = 0x10
+object_size.continuation = 0x18
 ovject_size.native_procedure = 0x08
 
 cons_cell.car = 0x04
@@ -57,7 +57,9 @@ environment.bindings = 0x08
 
 continuation.code = 0x04
 continuation.next = 0x08
-continuation.arg = 0x0c
+continuation.x = 0x0c
+continuation.y = 0x10
+continuation.z = 0x14
 
 native_procedure.code = 0x04
 
@@ -95,6 +97,8 @@ length:
         mov eax, ecx
         ret
 
+; def_string input, '(hello)'
+
 ; Cross-platform entry point
 ; In: 1) argc - count of command-line arguments
 ;     2) argv - array of argument adresses
@@ -104,6 +108,10 @@ main:
         .argc equ ebp+0x08
         .argv equ ebp+0x0c
         .argl equ ebp+0x10
+
+        ; ccall parse, input_str, input_len
+        ; ccall eval, eax
+        ; ccall print, eax
 
         ; EBX stores current state:
         ;   0: Normal state
@@ -874,6 +882,9 @@ eval:
         push ebp
         mov ebp, esp
         sub esp, 0x10
+        push esi
+        push edi
+        push ebx
 
         ; Continuation to execute
         .current_continuation equ ebp-0x04
@@ -920,18 +931,21 @@ eval:
     .eval_zero_args:
         write eval_zero_args
         xor eax, eax
-        jmp .ret
+        jmp .process_error
 
     .eval_many_args:
         write eval_many_args
         xor eax, eax
-        jmp .ret
+        jmp .process_error
 
     .return_code:
         mov eax, [.argument]
         jmp .ret
         
     .ret:
+        pop ebx
+        pop edi
+        pop esi
         mov esp, ebp
         pop ebp
         ret
@@ -978,9 +992,10 @@ eval:
         mov edx, [.current_continuation]
         mov edx, [edx+continuation.next]
         mov [eax+continuation.next], edx
+        ; Store raw argument list in X field
         mov edx, [.argument]
         mov edx, [edx+cons_cell.cdr]
-        mov [eax+continuation.arg], edx
+        mov [eax+continuation.x], edx
         mov [.current_continuation], eax
         ; But before we evaluate CAR of this cons cell
         ccall memory_create_continuation, .eval
@@ -995,17 +1010,150 @@ eval:
 
     .apply_procedure_or_special:
         ; TODO process special forms
-        ; TODO process arguments
+        mov eax, [.args]
+        test eax, eax
+        jz .operator_many_args_ok
+        mov eax, [eax+object.tag]
+        and eax, object.tag.type_mask
+        cmp eax, object.tag.empty_list
+        je .operator_many_args_ok
+        write operator_many_args
+        xor eax, eax
+        jmp .process_error
+    .operator_many_args_ok:
         mov eax, [.argument]
+        test eax, eax
+        jz .operator_empty_arg
         mov edx, [eax+object.tag]
         and edx, object.tag.type_mask
         cmp edx, object.tag.native_procedure
-        je .call_native_procedure
+        je .process_procedure
         write eval_apply_wrong_type
         xor eax, eax
         jmp .process_error
+    .process_procedure:
+        mov ebx, eax
+        mov edx, [.current_continuation]
+        mov esi, [edx+continuation.x]
+        mov edi, empty_list
+        jmp .eval_arg_or_apply
+    .operator_empty_arg:
+        write operator_empty_arg
+        xor eax, eax
+        jmp .process_error
+
+        ; In:
+        ; EBX - procedure
+        ; ESI - (rest) unevaluated arguments list
+        ; EDI - reversed list of evaluated arguments
+    .eval_arg_or_apply:
+        test esi, esi
+        jz .do_apply
+        mov ecx, [esi+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .do_apply
+        cmp ecx, object.tag.cons_cell
+        jne .error_args_list
+        ccall memory_create_continuation, .process_args
+        mov edx, [.current_continuation]
+        mov ecx, [edx+continuation.next]
+        mov [eax+continuation.next], ecx
+        ; Store procedure in X
+        mov [eax+continuation.x], ebx
+        ; Store evaluated arguments list in Y
+        mov [eax+continuation.y], edi
+        ; Store raw argument list in Z
+        mov ecx, [esi+cons_cell.cdr]
+        mov [eax+continuation.z], ecx
+        mov [.current_continuation], eax
+        ; But before we evaluate CAR of this cons cell
+        ccall memory_create_continuation, .eval
+        mov edx, [.current_continuation]
+        mov [eax+continuation.next], edx
+        mov [.current_continuation], eax
+        ; Pass CAR of unevaluated operands list as argument
+        mov ecx, [esi+cons_cell.car]
+        mov [.argument], edx
+        mov dword [.args], 0
+        jmp .next
+    .do_apply:
+        ccall reverse, edi
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        je .do_apply_many_args
+        xor eax, eax
+        xor edx, edx
+        jmp .do_apply_select
+    .do_apply_many_args:
+        mov edx, [eax+cons_cell.cdr]
+        mov eax, [eax+cons_cell.car]
+    .do_apply_select:
+        mov ecx, [ebx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.native_procedure
+        je .do_apply_native_procedure
+        write do_apply_unknown_type
+        xor eax, eax
+        jmp .process_error
+    .do_apply_native_procedure:
+        call dword [ebx+native_procedure.code]
+        mov [.argument], eax
+        mov [.args], edx
+        mov eax, [.current_continuation]
+        mov eax, [eax+continuation.next]
+        mov [.current_continuation], eax
+        jmp .next
+        
+    .process_args:
+        ; Continuation fields:
+        ; X - procedure object
+        ; Y - list of evaluated arguments in reverse order
+        ; Z - list of rest unevaluated arguments
+        mov eax, [.args]
+        test eax, eax
+        jz .process_args_many_args_ok
+        mov eax, [eax+object.tag]
+        and eax, object.tag.type_mask
+        cmp eax, object.tag.empty_list
+        je .process_args_many_args_ok
+        write operand_many_args
+        xor eax, eax
+        jmp .process_error
+    .process_args_many_args_ok:
+        mov ecx, [.argument]
+        test ecx, ecx
+        jz .process_args_no_arg
+        mov edx, [.current_continuation]
+        mov ebx, [edx+continuation.x]
+        mov edi, [edx+continuation.y]
+        mov esi, [edx+continuation.z]
+        ccall memory_create_cons_cell
+        mov ecx, [.argument]
+        mov [eax+cons_cell.car], ecx
+        mov [eax+cons_cell.cdr], edi
+        mov edi, eax
+        jmp .eval_arg_or_apply
+    .empty_args:
+        xor edx, edx
+        mov [.argument], edx
+        mov [.args], edx
+    .process_args_no_arg:
+        write operand_empty_arg
+        xor eax, eax
+        jmp .process_error
+
+    .error_args_list:
+        write eval_error_args_list
+        xor eax, eax
+        jmp .process_error
+         
     .call_native_procedure:
-        call dword [eax+native_procedure.code]
+        mov ecx, eax
+        mov eax, [.argument]
+        mov edx, [.args]
+        call dword [ecx+native_procedure.code]
         mov [.argument], eax
         mov [.args], edx
         mov eax, [.current_continuation]
@@ -1028,6 +1176,19 @@ eval:
         dd  .unknown_type   ; Native procedure
         ; Pad table to object.tag_ceiling entries
         dd  object.tag_ceiling-($-.eval_dispatch)/4  dup(.unknown_type)
+
+; Reverse scheme list
+; In: 1) Scheme list
+; Out: Reversed scheme list
+reverse:
+        push ebp
+        mov ebp, esp
+
+        mov eax, [ebp+0x08]
+
+        mov esp, ebp
+        pop ebp
+        ret
 
 ; Allocates memory from heap
 ; In: 1) Size of memory block
@@ -1187,7 +1348,9 @@ memory_create_continuation:
         mov [eax+continuation.code], edx
         xor edx, edx
         mov [eax+continuation.next], edx
-        mov [eax+continuation.arg], edx
+        mov [eax+continuation.x], edx
+        mov [eax+continuation.y], edx
+        mov [eax+continuation.z], edx
         ret
 
 ; Copy block of memory
@@ -1258,7 +1421,18 @@ def_string eval_unknown, 'Eval error: cannot execute expression: '
 def_string unbound_symbol, 'Eval error: unbound symbol: '
 def_string eval_apply_wrong_type, 'Eval error: cannot apply object ', \
     'because of wrong type', 0x0a
+def_string operator_many_args, 'Eval error: cannot apply multiple values ', \
+    'as operator', 0x0a
+def_string operator_empty_arg, 'Eval error: no value returned for operator', \
+    0x0a
+def_string operand_many_args, 'Eval error: cannot use multiple values ', \
+    'as operand', 0x0a
+def_string operand_empty_arg, 'Eval error: no value returned for operand', \
+    0x0a
+def_string do_apply_unknown_type, 'Eval error: cannot apply operator ', \
+    'of unknown type', 0x0a
 def_string exec_error_with_arg, 'Execution aborted with the following error: '
+def_string eval_error_args_list, 'Syntax error in argument list', 0x0a
 def_string hello_world, 'Hello, world!', 0x0a
 
 align0 4
