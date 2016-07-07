@@ -97,7 +97,7 @@ length:
         mov eax, ecx
         ret
 
-; def_string input, '(hello)'
+; def_string input, '(+ "s")'
 
 ; Cross-platform entry point
 ; In: 1) argc - count of command-line arguments
@@ -1008,6 +1008,8 @@ eval:
         mov [.argument], edx
         jmp .next
 
+        db '.apply_procedure_or_special', 0
+        align0 4
     .apply_procedure_or_special:
         ; TODO process special forms
         mov eax, [.args]
@@ -1074,11 +1076,15 @@ eval:
         mov [.current_continuation], eax
         ; Pass CAR of unevaluated operands list as argument
         mov ecx, [esi+cons_cell.car]
-        mov [.argument], edx
+        mov [.argument], ecx
         mov dword [.args], 0
         jmp .next
+        db '.do_apply', 0
+        align0 4
     .do_apply:
-        ccall reverse, edi
+        mov eax, edi
+        xor edx, edx
+        call reverse
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.cons_cell
@@ -1099,13 +1105,20 @@ eval:
         jmp .process_error
     .do_apply_native_procedure:
         call dword [ebx+native_procedure.code]
+        test ecx, ecx
+        jnz .native_error
         mov [.argument], eax
         mov [.args], edx
         mov eax, [.current_continuation]
         mov eax, [eax+continuation.next]
         mov [.current_continuation], eax
         jmp .next
+    .native_error:
+        mov eax, ecx
+        jmp .process_error
         
+        db '.process_args', 0
+        align0 4
     .process_args:
         ; Continuation fields:
         ; X - procedure object
@@ -1149,18 +1162,6 @@ eval:
         xor eax, eax
         jmp .process_error
          
-    .call_native_procedure:
-        mov ecx, eax
-        mov eax, [.argument]
-        mov edx, [.args]
-        call dword [ecx+native_procedure.code]
-        mov [.argument], eax
-        mov [.args], edx
-        mov eax, [.current_continuation]
-        mov eax, [eax+continuation.next]
-        mov [.current_continuation], eax
-        jmp .next
-
     align0 4
     .eval_dispatch:
         dd  .unknown_type   ; Zero tag - incorrect object
@@ -1176,19 +1177,6 @@ eval:
         dd  .unknown_type   ; Native procedure
         ; Pad table to object.tag_ceiling entries
         dd  object.tag_ceiling-($-.eval_dispatch)/4  dup(.unknown_type)
-
-; Reverse scheme list
-; In: 1) Scheme list
-; Out: Reversed scheme list
-reverse:
-        push ebp
-        mov ebp, esp
-
-        mov eax, [ebp+0x08]
-
-        mov esp, ebp
-        pop ebp
-        ret
 
 ; Allocates memory from heap
 ; In: 1) Size of memory block
@@ -1382,6 +1370,183 @@ hello_world:
         xor edx, edx
         ret
 
+; Reverse scheme list
+reverse:
+        push ebp
+        mov ebp, esp
+        push esi
+        push edi
+
+        test edx, edx
+        jz .start
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .start
+        jmp .error
+    .start:
+        mov esi, eax
+        test esi, esi
+        jz .error
+        mov edi, empty_list
+    .next:
+        mov ecx, [esi+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne .ok
+        ccall memory_create_cons_cell
+        mov ecx, [esi+cons_cell.car]
+        mov [eax+cons_cell.car], ecx
+        mov [eax+cons_cell.cdr], edi
+        mov edi, eax
+        mov esi, [esi+cons_cell.cdr]
+        jmp .next
+
+    .error:
+        mov ecx, wrong_args_count
+        jmp .ret
+    .ok:
+        mov eax, edi
+        xor edx, edx
+        xor ecx, ecx
+    .ret:
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
+        ret
+
+        db 'scheme_add', 0
+        align0 4
+scheme_add:
+        test eax, eax
+        jz .done
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.unsigned
+        je .first_ok
+        cmp ecx, object.tag.signed
+        je .first_ok
+        mov ecx, arithmetic_error
+        ret
+    .first_ok:
+        mov eax, [eax+unsigned.value]
+    .next:
+        test edx, edx
+        jz .done
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        je .get_car
+        cmp ecx, object.tag.empty_list
+        je .done
+        mov ecx, arg_list_error
+        ret
+    .get_car:
+        push ebx
+        mov ebx, [edx+cons_cell.car]
+        mov edx, [edx+cons_cell.cdr]
+        mov ecx, [ebx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.unsigned
+        je .next_ok
+        cmp ecx, object.tag.signed
+        je .next_ok
+        pop ebx
+        mov ecx, arithmetic_error
+        ret
+    .next_ok:
+        mov ecx, [ebx+unsigned.value]
+        add eax, ecx
+        pop ebx
+        jmp .next
+    .done:
+        ccall memory_create_unsigned, eax
+        xor ecx, ecx
+        xor edx, edx
+        ret
+
+scheme_sub:
+        test eax, eax
+        jz .done
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.unsigned
+        je .first_ok
+        cmp ecx, object.tag.signed
+        je .first_ok
+        mov ecx, arithmetic_error
+        ret
+    .first_ok:
+        mov eax, [eax+unsigned.value]
+    .next:
+        test edx, edx
+        jz .done
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        je .get_car
+        cmp ecx, object.tag.empty_list
+        je .done
+        mov ecx, arg_list_error
+        ret
+    .get_car:
+        push ebx
+        mov ebx, [edx+cons_cell.car]
+        mov edx, [edx+cons_cell.cdr]
+        mov ecx, [ebx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.unsigned
+        je .next_ok
+        cmp ecx, object.tag.signed
+        je .next_ok
+        pop ebx
+        mov ecx, arithmetic_error
+        ret
+    .next_ok:
+        mov ecx, [ebx+unsigned.value]
+        sub eax, ecx
+        pop ebx
+        jmp .next
+    .done:
+        ccall memory_create_unsigned, eax
+        xor ecx, ecx
+        xor edx, edx
+        ret
+
+create_list:
+        test eax, eax
+        jz .empty
+        test edx, edx
+        jnz .next
+        mov edx, empty_list
+    .next:
+        push eax
+        push edx
+        ccall memory_create_cons_cell
+        pop edx
+        pop ecx
+        mov [eax+cons_cell.car], ecx
+        mov [eax+cons_cell.cdr], edx
+        xor edx, edx
+        xor ecx, ecx
+        ret
+    .empty:
+        mov eax, empty_list
+        xor edx, edx
+        xor ecx, ecx
+        ret
+
+cons:
+        xor edx, edx
+        xor ecx, ecx
+        ret
+        test eax, eax
+        jz .wrong_args_count
+    .wrong_args_count:
+        mov ecx, wrong_args_count
+        ret
+
 PLATFORM_RDATA
 
 def_string newline, 0x0a
@@ -1438,10 +1603,18 @@ def_string hello_world, 'Hello, world!', 0x0a
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
 def_proc 'hello', hello_world
+def_proc '+', scheme_add
+def_proc '-', scheme_sub
+def_proc 'reverse', reverse
+def_proc 'list', create_list
+def_proc 'cons', cons
 def_symbol 'qwe', qwerty
 def_symbol 'asd', qwerty
 def_scheme_string qwerty, 'Qwerty'
 def_scheme_string some_result, 'Some result'
+def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
+def_scheme_string arg_list_error, 'argument list is not proper list'
+def_scheme_string wrong_args_count, 'incorrect number of arguments'
 builtin_symbols = builtin_symbols_prev
 
 PLATFORM_DATA

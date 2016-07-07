@@ -1,5 +1,5 @@
-(hello)
-1
-qwe
-hello
+(list 1 2 "a" qwe)
+(+ 1 2 3)
+(- 4 2 1)
+(- 4 "df" 2)
 
