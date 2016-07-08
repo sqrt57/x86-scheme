@@ -5,10 +5,10 @@
 ; This file is part of enscheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
+builtin_symbols_prev = 0
+
 include 'proc.inc'
 include 'macros.inc'
-
-builtin_symbols_prev = 0
 
 object.tag = 0x00
 object.tag_bits = 4
@@ -1364,12 +1364,6 @@ memcpy:
         pop ebp
         ret
 
-hello_world:
-        write hello_world
-        mov eax, some_result
-        xor edx, edx
-        ret
-
 ; Reverse scheme list
 reverse:
         push ebp
@@ -1538,13 +1532,73 @@ create_list:
         ret
 
 cons:
+        test eax, eax
+        jz wrong_args_count
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne wrong_args_count
+        mov ecx, [edx+cons_cell.cdr]
+        mov ecx, [ecx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne wrong_args_count
+        mov edx, [edx+cons_cell.car]
+        push eax
+        push edx
+        ccall memory_create_cons_cell
+        pop edx
+        pop ecx
+        mov [eax+cons_cell.car], ecx
+        mov [eax+cons_cell.cdr], edx
         xor edx, edx
         xor ecx, ecx
         ret
+
+wrong_args_count:
+        mov ecx, wrong_args_count_str
+        ret
+
+car:
         test eax, eax
-        jz .wrong_args_count
-    .wrong_args_count:
-        mov ecx, wrong_args_count
+        jz wrong_args_count
+        test edx, edx
+        jz .ok_args
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne wrong_args_count
+    .ok_args:
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne pair_expected
+        mov eax, [eax+cons_cell.car]
+        xor edx, edx
+        xor ecx, ecx
+        ret
+
+cdr:
+        test eax, eax
+        jz wrong_args_count
+        test edx, edx
+        jz .ok_args
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne wrong_args_count
+    .ok_args:
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne pair_expected
+        mov eax, [eax+cons_cell.cdr]
+        xor edx, edx
+        xor ecx, ecx
+        ret
+
+pair_expected:
+        mov ecx, pair_expected_str
         ret
 
 PLATFORM_RDATA
@@ -1602,20 +1656,17 @@ def_string hello_world, 'Hello, world!', 0x0a
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
-def_proc 'hello', hello_world
 def_proc '+', scheme_add
 def_proc '-', scheme_sub
 def_proc 'reverse', reverse
 def_proc 'list', create_list
 def_proc 'cons', cons
-def_symbol 'qwe', qwerty
-def_symbol 'asd', qwerty
-def_scheme_string qwerty, 'Qwerty'
-def_scheme_string some_result, 'Some result'
+def_proc 'car', car
+def_proc 'cdr', cdr
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
 def_scheme_string arg_list_error, 'argument list is not proper list'
-def_scheme_string wrong_args_count, 'incorrect number of arguments'
-builtin_symbols = builtin_symbols_prev
+def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
+def_scheme_string pair_expected_str, 'pair expected'
 
 PLATFORM_DATA
 
@@ -1624,4 +1675,6 @@ PLATFORM_DATA
         mem_alloclist   dd  0
 
 PLATFORM_BSS
+
+builtin_symbols = builtin_symbols_prev
 
