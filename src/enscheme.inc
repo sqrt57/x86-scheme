@@ -32,8 +32,7 @@ object_size.empty_list = 0x04
 object_size.cons_cell = 0x0c
 object_size.symbol = 0x10
 object_size.string = 0x08
-object_size.signed = 0x08
-object_size.unsigned = 0x08
+object_size.number = 0x08
 object_size.environment = 0x0c
 object_size.continuation = 0x18
 ovject_size.native_procedure = 0x08
@@ -49,8 +48,7 @@ symbol.name_data = 0x10
 string.length = 0x04
 string.data = 0x08
 
-signed.value = 0x04
-unsigned.value = 0x04
+number.value = 0x04
 
 environment.parent = 0x04
 environment.bindings = 0x08
@@ -578,7 +576,7 @@ parse:
         dec ecx
         jmp .parse_number_digit
     .parse_number_end:
-        ccall memory_create_unsigned, eax
+        ccall memory_create_signed, eax
         mov [.result], eax
         pop esi
         pop ebx
@@ -698,6 +696,8 @@ print:
         and edx, object.tag.type_mask
         cmp edx, object.tag.unsigned
         je .unsigned
+        cmp edx, object.tag.signed
+        je .signed
         cmp edx, object.tag.string
         je .string
         cmp edx, object.tag.symbol
@@ -716,7 +716,7 @@ print:
         sub esp, 0x0c
         push edi
         lea edi, [.unsigned_buf_end]
-        mov eax, [eax+unsigned.value]
+        mov eax, [eax+number.value]
         mov ecx, 10
     .unsigned_next:
         xor edx, edx
@@ -734,6 +734,46 @@ print:
         pop edi
         mov esp, ebp
         pop ebp
+        ret
+
+    .signed:
+        push ebp
+        mov ebp, esp
+        .signed_buf_end equ ebp
+        sub esp, 0x0c
+        push edi
+        lea edi, [.signed_buf_end]
+        mov eax, [eax+number.value]
+        test eax, eax
+        jns .positive
+        not eax
+        inc eax
+        call .convert_positive
+        mov edx, '-'
+        dec edi
+        mov byte [edi], dl
+        jmp .do_print_signed
+    .positive:
+        call .convert_positive
+    .do_print_signed:
+        lea eax, [.signed_buf_end]
+        sub eax, edi
+        ccall write_string, edi, eax
+        pop edi
+        mov esp, ebp
+        pop ebp
+        ret
+
+    .convert_positive:
+        mov ecx, 10
+    .signed_next:
+        xor edx, edx
+        div ecx
+        add edx, '0'
+        dec edi
+        mov byte [edi], dl
+        test eax, eax
+        jnz .signed_next
         ret
 
     .string:
@@ -1008,8 +1048,6 @@ eval:
         mov [.argument], edx
         jmp .next
 
-        db '.apply_procedure_or_special', 0
-        align0 4
     .apply_procedure_or_special:
         ; TODO process special forms
         mov eax, [.args]
@@ -1079,8 +1117,6 @@ eval:
         mov [.argument], ecx
         mov dword [.args], 0
         jmp .next
-        db '.do_apply', 0
-        align0 4
     .do_apply:
         mov eax, edi
         xor edx, edx
@@ -1117,8 +1153,6 @@ eval:
         mov eax, ecx
         jmp .process_error
         
-        db '.process_args', 0
-        align0 4
     .process_args:
         ; Continuation fields:
         ; X - procedure object
@@ -1252,10 +1286,20 @@ memory_alloc:
 ; In: 1) Value of unsigned number
 ; Out: Allocated scheme object
 memory_create_unsigned:
-        ccall memory_alloc, object_size.unsigned
+        ccall memory_alloc, object_size.number
         mov dword [eax+object.tag], object.tag.unsigned
         mov edx, [esp+0x04]
-        mov [eax+unsigned.value], edx
+        mov [eax+number.value], edx
+        ret
+
+; Allocates signed number on the heap
+; In: 1) Value of signed number
+; Out: Allocated scheme object
+memory_create_signed:
+        ccall memory_alloc, object_size.number
+        mov dword [eax+object.tag], object.tag.signed
+        mov edx, [esp+0x04]
+        mov [eax+number.value], edx
         ret
 
 ; Allocates string on the heap
@@ -1410,21 +1454,21 @@ reverse:
         pop ebp
         ret
 
-        db 'scheme_add', 0
-        align0 4
 scheme_add:
+        push edi
         test eax, eax
         jz .done
-        mov ecx, [eax+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.unsigned
+        mov edi, [eax+object.tag]
+        and edi, object.tag.type_mask
+        cmp edi, object.tag.unsigned
         je .first_ok
-        cmp ecx, object.tag.signed
+        cmp edi, object.tag.signed
         je .first_ok
         mov ecx, arithmetic_error
+        pop edi
         ret
     .first_ok:
-        mov eax, [eax+unsigned.value]
+        mov eax, [eax+number.value]
     .next:
         test edx, edx
         jz .done
@@ -1435,6 +1479,7 @@ scheme_add:
         cmp ecx, object.tag.empty_list
         je .done
         mov ecx, arg_list_error
+        pop edi
         ret
     .get_car:
         push ebx
@@ -1448,31 +1493,37 @@ scheme_add:
         je .next_ok
         pop ebx
         mov ecx, arithmetic_error
+        pop edi
         ret
     .next_ok:
-        mov ecx, [ebx+unsigned.value]
+        mov ecx, [ebx+number.value]
         add eax, ecx
         pop ebx
         jmp .next
     .done:
-        ccall memory_create_unsigned, eax
+        ccall memory_create_signed, eax
+        mov [eax+object.tag], edi
         xor ecx, ecx
         xor edx, edx
+        pop edi
         ret
 
 scheme_sub:
+        push edi
+        push esi
         test eax, eax
         jz .done
-        mov ecx, [eax+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.unsigned
+        mov edi, [eax+object.tag]
+        and edi, object.tag.type_mask
+        cmp edi, object.tag.unsigned
         je .first_ok
-        cmp ecx, object.tag.signed
+        cmp edi, object.tag.signed
         je .first_ok
         mov ecx, arithmetic_error
         ret
     .first_ok:
-        mov eax, [eax+unsigned.value]
+        xor esi, esi
+        mov eax, [eax+number.value]
     .next:
         test edx, edx
         jz .done
@@ -1483,8 +1534,11 @@ scheme_sub:
         cmp ecx, object.tag.empty_list
         je .done
         mov ecx, arg_list_error
+        pop esi
+        pop edi
         ret
     .get_car:
+        mov esi, 1
         push ebx
         mov ebx, [edx+cons_cell.car]
         mov edx, [edx+cons_cell.cdr]
@@ -1495,15 +1549,26 @@ scheme_sub:
         cmp ecx, object.tag.signed
         je .next_ok
         pop ebx
+        pop esi
+        pop edi
         mov ecx, arithmetic_error
         ret
     .next_ok:
-        mov ecx, [ebx+unsigned.value]
+        mov ecx, [ebx+number.value]
         sub eax, ecx
         pop ebx
         jmp .next
     .done:
-        ccall memory_create_unsigned, eax
+        test esi, esi
+        jnz .done1
+        ; Exactly one argument - calculate negative of it
+        not eax
+        inc eax
+    .done1:
+        pop esi
+        ccall memory_create_signed, eax
+        mov [eax+object.tag], edi
+        pop edi
         xor ecx, ecx
         xor edx, edx
         ret
@@ -1601,6 +1666,58 @@ pair_expected:
         mov ecx, pair_expected_str
         ret
 
+        db 'number_to_signed', 0
+        align0 4
+number_to_signed:
+        test eax, eax
+        jz wrong_args_count
+        test edx, edx
+        jz .ok_args
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne wrong_args_count
+    .ok_args:
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.signed
+        je .ret
+        cmp ecx, object.tag.unsigned
+        je .convert
+        mov ecx, arithmetic_error
+        ret
+    .convert:
+        ccall memory_create_signed, [eax+number.value]
+    .ret:
+        xor edx, edx
+        xor ecx, ecx
+        ret
+
+number_to_unsigned:
+        test eax, eax
+        jz wrong_args_count
+        test edx, edx
+        jz .ok_args
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne wrong_args_count
+    .ok_args:
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.unsigned
+        je .ret
+        cmp ecx, object.tag.signed
+        je .convert
+        mov ecx, arithmetic_error
+        ret
+    .convert:
+        ccall memory_create_unsigned, [eax+number.value]
+    .ret:
+        xor edx, edx
+        xor ecx, ecx
+        ret
+
 PLATFORM_RDATA
 
 def_string newline, 0x0a
@@ -1652,7 +1769,6 @@ def_string do_apply_unknown_type, 'Eval error: cannot apply operator ', \
     'of unknown type', 0x0a
 def_string exec_error_with_arg, 'Execution aborted with the following error: '
 def_string eval_error_args_list, 'Syntax error in argument list', 0x0a
-def_string hello_world, 'Hello, world!', 0x0a
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
@@ -1663,6 +1779,8 @@ def_proc 'list', create_list
 def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr
+def_proc 'number->signed', number_to_signed
+def_proc 'number->unsigned', number_to_unsigned
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
 def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'

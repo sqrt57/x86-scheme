@@ -1,3 +1,4 @@
-(car (list 1 2 3))
-(cdr (list 1 2 3))
-(car 1)
+(- 5)
+(- 1 4)
+(number->unsigned (- 1))
+
