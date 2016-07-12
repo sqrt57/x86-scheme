@@ -69,3 +69,12 @@ local procedure_object
 def_symbol str, procedure_object
 }
 
+macro def_special str, value
+{
+local special_object
+    special_object:
+        dd  object.tag.native_special or object.tag.fixed
+        dd  value
+def_symbol str, special_object
+}
+

@@ -25,6 +25,7 @@ object.tag.environment = 0x08
 ; Continuation, has 4 additional fields
 object.tag.continuation = 0x09
 object.tag.native_procedure = 0x0a
+object.tag.native_special = 0x0b
 
 object.tag.fixed = 0x100
 
@@ -60,6 +61,7 @@ continuation.y = 0x10
 continuation.z = 0x14
 
 native_procedure.code = 0x04
+native_special.code = 0x04
 
 memory_block_size = 1024*1024
 max_object_size = 4*1024
@@ -927,29 +929,29 @@ eval:
         push ebx
 
         ; Continuation to execute
-        .current_continuation equ ebp-0x04
+        eval_current_continuation equ ebp-0x04
         ; First argument value passed to current continuation
-        .argument equ ebp-0x08
+        eval_argument equ ebp-0x08
         ; Rest arguments values passed to current continuation
-        .args equ ebp-0x0c
-        ; First argument goes into .argument and rest into .args.
+        eval_args equ ebp-0x0c
+        ; First argument goes into eval_argument and rest into eval_args.
         ; Evaluation environment. If NULL then global environment.
-        .environment equ ebp-0x10
+        eval_environment equ ebp-0x10
 
         xor eax, eax
-        mov [.args], eax
-        mov [.environment], eax
+        mov [eval_args], eax
+        mov [eval_environment], eax
         mov eax, [ebp+0x08]
-        mov [.argument], eax
+        mov [eval_argument], eax
         ccall memory_create_continuation, .return_code
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         ccall memory_create_continuation, .eval
-        mov edx, [.current_continuation]
+        mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
 
     .next:
-        mov eax, [.current_continuation]
+        mov eax, [eval_current_continuation]
         jmp dword [eax+continuation.code]
 
     .process_error:
@@ -958,10 +960,10 @@ eval:
         jmp .ret
 
     .eval:
-        mov eax, [.args]
+        mov eax, [eval_args]
         test eax, eax
         jnz .eval_many_args
-        mov eax, [.argument]
+        mov eax, [eval_argument]
         test eax, eax
         jz .eval_zero_args
         mov edx, [eax+object.tag]
@@ -979,7 +981,7 @@ eval:
         jmp .process_error
 
     .return_code:
-        mov eax, [.argument]
+        mov eax, [eval_argument]
         jmp .ret
         
     .ret:
@@ -992,32 +994,32 @@ eval:
 
     .unknown_type:
         write eval_unknown
-        ccall print, [.argument]
+        ccall print, [eval_argument]
         xor eax, eax
         jmp .process_error
 
     .self:
         ; Retrieve next continuation passing to it the same argument
-        mov eax, [.current_continuation]
+        mov eax, [eval_current_continuation]
         mov eax, [eax+continuation.next]
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         jmp .next
 
     .symbol:
         ; Value bound to symbol becomes argument to next continuation
-        mov eax, [.argument]
+        mov eax, [eval_argument]
         mov edx, [eax+symbol.value]
         test edx, edx
         jz .unbound_symbol
-        mov [.argument], edx
+        mov [eval_argument], edx
         ; Retrieve next continuation
-        mov eax, [.current_continuation]
+        mov eax, [eval_current_continuation]
         mov eax, [eax+continuation.next]
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         jmp .next
     .unbound_symbol:
         write unbound_symbol
-        mov eax, [.argument]
+        mov eax, [eval_argument]
         mov ecx, [eax+symbol.name_length]
         lea edx, [eax+symbol.name_data]
         ccall write_string, edx, ecx
@@ -1029,28 +1031,27 @@ eval:
         ; Procedure or special form call
         ; Apply procedure or special form to CDR of current cons cell
         ccall memory_create_continuation, .apply_procedure_or_special
-        mov edx, [.current_continuation]
+        mov edx, [eval_current_continuation]
         mov edx, [edx+continuation.next]
         mov [eax+continuation.next], edx
         ; Store raw argument list in X field
-        mov edx, [.argument]
+        mov edx, [eval_argument]
         mov edx, [edx+cons_cell.cdr]
         mov [eax+continuation.x], edx
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         ; But before we evaluate CAR of this cons cell
         ccall memory_create_continuation, .eval
-        mov edx, [.current_continuation]
+        mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         ; Pass CAR of current cons cell as argument
-        mov edx, [.argument]
+        mov edx, [eval_argument]
         mov edx, [edx+cons_cell.car]
-        mov [.argument], edx
+        mov [eval_argument], edx
         jmp .next
 
     .apply_procedure_or_special:
-        ; TODO process special forms
-        mov eax, [.args]
+        mov eax, [eval_args]
         test eax, eax
         jz .operator_many_args_ok
         mov eax, [eax+object.tag]
@@ -1061,22 +1062,46 @@ eval:
         xor eax, eax
         jmp .process_error
     .operator_many_args_ok:
-        mov eax, [.argument]
+        mov eax, [eval_argument]
         test eax, eax
         jz .operator_empty_arg
         mov edx, [eax+object.tag]
         and edx, object.tag.type_mask
         cmp edx, object.tag.native_procedure
         je .process_procedure
+        cmp edx, object.tag.native_special
+        je .process_special
         write eval_apply_wrong_type
         xor eax, eax
         jmp .process_error
     .process_procedure:
         mov ebx, eax
-        mov edx, [.current_continuation]
+        mov edx, [eval_current_continuation]
         mov esi, [edx+continuation.x]
         mov edi, empty_list
         jmp .eval_arg_or_apply
+    .process_special:
+        mov edi, eax
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.x]
+        test ecx, ecx
+        jz .special_no_args
+        mov edx, [ecx+object.tag]
+        and edx, object.tag.type_mask
+        cmp edx, object.tag.empty_list
+        jz .special_no_args
+        cmp edx, object.tag.cons_cell
+        jne .error_args_list
+        mov eax, [ecx+cons_cell.car]
+        mov [eval_argument], eax
+        mov eax, [ecx+cons_cell.cdr]
+        mov [eval_args], eax
+        jmp dword [edi+native_special.code]
+    .special_no_args:
+        xor eax, eax
+        mov [eval_argument], eax
+        mov [eval_args], eax
+        jmp dword [edi+native_special.code]
     .operator_empty_arg:
         write operator_empty_arg
         xor eax, eax
@@ -1096,7 +1121,7 @@ eval:
         cmp ecx, object.tag.cons_cell
         jne .error_args_list
         ccall memory_create_continuation, .process_args
-        mov edx, [.current_continuation]
+        mov edx, [eval_current_continuation]
         mov ecx, [edx+continuation.next]
         mov [eax+continuation.next], ecx
         ; Store procedure in X
@@ -1106,16 +1131,16 @@ eval:
         ; Store raw argument list in Z
         mov ecx, [esi+cons_cell.cdr]
         mov [eax+continuation.z], ecx
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         ; But before we evaluate CAR of this cons cell
         ccall memory_create_continuation, .eval
-        mov edx, [.current_continuation]
+        mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         ; Pass CAR of unevaluated operands list as argument
         mov ecx, [esi+cons_cell.car]
-        mov [.argument], ecx
-        mov dword [.args], 0
+        mov [eval_argument], ecx
+        mov dword [eval_args], 0
         jmp .next
     .do_apply:
         mov eax, edi
@@ -1143,11 +1168,11 @@ eval:
         call dword [ebx+native_procedure.code]
         test ecx, ecx
         jnz .native_error
-        mov [.argument], eax
-        mov [.args], edx
-        mov eax, [.current_continuation]
+        mov [eval_argument], eax
+        mov [eval_args], edx
+        mov eax, [eval_current_continuation]
         mov eax, [eax+continuation.next]
-        mov [.current_continuation], eax
+        mov [eval_current_continuation], eax
         jmp .next
     .native_error:
         mov eax, ecx
@@ -1158,7 +1183,7 @@ eval:
         ; X - procedure object
         ; Y - list of evaluated arguments in reverse order
         ; Z - list of rest unevaluated arguments
-        mov eax, [.args]
+        mov eax, [eval_args]
         test eax, eax
         jz .process_args_many_args_ok
         mov eax, [eax+object.tag]
@@ -1169,23 +1194,23 @@ eval:
         xor eax, eax
         jmp .process_error
     .process_args_many_args_ok:
-        mov ecx, [.argument]
+        mov ecx, [eval_argument]
         test ecx, ecx
         jz .process_args_no_arg
-        mov edx, [.current_continuation]
+        mov edx, [eval_current_continuation]
         mov ebx, [edx+continuation.x]
         mov edi, [edx+continuation.y]
         mov esi, [edx+continuation.z]
         ccall memory_create_cons_cell
-        mov ecx, [.argument]
+        mov ecx, [eval_argument]
         mov [eax+cons_cell.car], ecx
         mov [eax+cons_cell.cdr], edi
         mov edi, eax
         jmp .eval_arg_or_apply
     .empty_args:
         xor edx, edx
-        mov [.argument], edx
-        mov [.args], edx
+        mov [eval_argument], edx
+        mov [eval_args], edx
     .process_args_no_arg:
         write operand_empty_arg
         xor eax, eax
@@ -1666,8 +1691,6 @@ pair_expected:
         mov ecx, pair_expected_str
         ret
 
-        db 'number_to_signed', 0
-        align0 4
 number_to_signed:
         test eax, eax
         jz wrong_args_count
@@ -1717,6 +1740,28 @@ number_to_unsigned:
         xor edx, edx
         xor ecx, ecx
         ret
+
+quote:
+        mov eax, [eval_args]
+        test eax, eax
+        jz .many_args_ok
+        mov eax, [eax+object.tag]
+        and eax, object.tag.type_mask
+        cmp eax, object.tag.empty_list
+        je .many_args_ok
+        mov eax, quote_many_args_str
+        jmp eval.process_error
+    .many_args_ok:
+        mov eax, [eval_argument]
+        test eax, eax
+        jz .no_args
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eval_current_continuation], ecx
+        jmp eval.next
+    .no_args:
+        mov eax, quote_no_args_str
+        jmp eval.process_error
 
 PLATFORM_RDATA
 
@@ -1781,10 +1826,13 @@ def_proc 'car', car
 def_proc 'cdr', cdr
 def_proc 'number->signed', number_to_signed
 def_proc 'number->unsigned', number_to_unsigned
+def_special 'quote', quote
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
 def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
 def_scheme_string pair_expected_str, 'pair expected'
+def_scheme_string quote_many_args_str, 'too many arguments to quote'
+def_scheme_string quote_no_args_str, 'no arguments to quote'
 
 PLATFORM_DATA
 
