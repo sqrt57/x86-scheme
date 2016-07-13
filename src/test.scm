@@ -1,7 +1,10 @@
-(quote 1)
-(quote a)
-(quote (a b 3 . y))
-(quote (quote a b c))
-(quote ())
-(quote (a) (b))
+#t
+#f
+(if #f 1 0)
+(if #t 1 0)
+(if "67" 1 0)
+(if (quote 5) 1 0)
+(eq? 1 1)
+(eq? (quote a) (quote a))
+(eq? (list) (list))
 

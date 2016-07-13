@@ -962,7 +962,14 @@ eval:
     .eval:
         mov eax, [eval_args]
         test eax, eax
-        jnz .eval_many_args
+        jz .eval_many_args_ok
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .eval_many_args_ok
+        mov eax, eval_many_args_str
+        jmp .process_error
+    .eval_many_args_ok:
         mov eax, [eval_argument]
         test eax, eax
         jz .eval_zero_args
@@ -972,11 +979,6 @@ eval:
 
     .eval_zero_args:
         write eval_zero_args
-        xor eax, eax
-        jmp .process_error
-
-    .eval_many_args:
-        write eval_many_args
         xor eax, eax
         jmp .process_error
 
@@ -1217,8 +1219,7 @@ eval:
         jmp .process_error
 
     .error_args_list:
-        write eval_error_args_list
-        xor eax, eax
+        mov eax, eval_error_args_list
         jmp .process_error
          
     align0 4
@@ -1741,6 +1742,30 @@ number_to_unsigned:
         xor ecx, ecx
         ret
 
+scheme_eq:
+        test eax, eax
+        jz wrong_args_count
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne wrong_args_count
+        mov ecx, [edx+cons_cell.cdr]
+        mov ecx, [ecx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne wrong_args_count
+        mov edx, [edx+cons_cell.car]
+        cmp eax, edx
+        je .equal
+        mov eax, false
+        jmp .ret
+    .equal:
+        mov eax, true
+    .ret:
+        xor edx, edx
+        xor ecx, ecx
+        ret
+
 quote:
         mov eax, [eval_args]
         test eax, eax
@@ -1762,6 +1787,82 @@ quote:
     .no_args:
         mov eax, quote_no_args_str
         jmp eval.process_error
+
+scheme_if:
+        mov eax, [eval_argument]
+        test eax, eax
+        jz .wrong_args
+        ccall memory_create_continuation, if_continuation
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        mov edx, [eval_args]
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .wrong_args
+        cmp ecx, object.tag.cons_cell
+        jne .arg_list_error
+        mov ecx, [edx+cons_cell.car]
+        mov [eax+continuation.x], ecx
+        mov edx, [edx+cons_cell.cdr]
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .wrong_args
+        cmp ecx, object.tag.cons_cell
+        jne .arg_list_error
+        mov ecx, [edx+cons_cell.car]
+        mov [eax+continuation.y], ecx
+        mov edx, [edx+cons_cell.cdr]
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne .wrong_args
+        ccall memory_create_continuation, eval.eval
+        mov edx, [eval_current_continuation]
+        mov [eax+continuation.next], edx
+        mov [eval_current_continuation], eax
+        xor eax, eax
+        mov [eval_args], eax
+        jmp eval.next
+    .wrong_args:
+        mov eax, wrong_args_count_str
+        jmp eval.process_error
+    .arg_list_error:
+        mov eax, eval_error_args_list
+        jmp eval.process_error
+
+if_continuation:
+        mov eax, [eval_args]
+        test eax, eax
+        jz .many_args_ok
+        mov eax, [eax+object.tag]
+        and eax, object.tag.type_mask
+        cmp eax, object.tag.empty_list
+        je .many_args_ok
+    .no_args:
+        mov eax, wrong_args_count_str
+        jmp eval.process_error
+    .many_args_ok:
+        ccall memory_create_continuation, eval.eval
+        mov edx, [eval_current_continuation]
+        mov ecx, [edx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        mov ecx, [eval_argument]
+        test ecx, ecx
+        jz .no_args
+        cmp ecx, false
+        je .false
+        mov ecx, [edx+continuation.x]
+        mov [eval_argument], ecx
+        jmp eval.next
+    .false:
+        mov ecx, [edx+continuation.y]
+        mov [eval_argument], ecx
+        jmp eval.next
 
 PLATFORM_RDATA
 
@@ -1797,7 +1898,6 @@ def_string memory_error_oom, 'Memory error: out of memory', 0x0a
 def_string memory_error_large, 'Memory error: too large block of memory ', \
     'requested', 0x0a
 def_string eval_zero_args, 'Eval error: required one argument to eval', 0x0a
-def_string eval_many_args, 'Eval error: cannot eval many args', 0x0a
 def_string eval_unknown, 'Eval error: cannot execute expression: '
 def_string unbound_symbol, 'Eval error: unbound symbol: '
 def_string eval_apply_wrong_type, 'Eval error: cannot apply object ', \
@@ -1813,7 +1913,6 @@ def_string operand_empty_arg, 'Eval error: no value returned for operand', \
 def_string do_apply_unknown_type, 'Eval error: cannot apply operator ', \
     'of unknown type', 0x0a
 def_string exec_error_with_arg, 'Execution aborted with the following error: '
-def_string eval_error_args_list, 'Syntax error in argument list', 0x0a
 
 align0 4
 empty_list: dd object.tag.empty_list or object.tag.fixed
@@ -1826,13 +1925,19 @@ def_proc 'car', car
 def_proc 'cdr', cdr
 def_proc 'number->signed', number_to_signed
 def_proc 'number->unsigned', number_to_unsigned
+def_proc 'eq?', scheme_eq
 def_special 'quote', quote
+def_special 'if', scheme_if
+def_symbol true, '#t', true
+def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
 def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
 def_scheme_string pair_expected_str, 'pair expected'
 def_scheme_string quote_many_args_str, 'too many arguments to quote'
 def_scheme_string quote_no_args_str, 'no arguments to quote'
+def_scheme_string eval_error_args_list, 'syntax error in argument list'
+def_scheme_string eval_many_args_str, 'cannot eval many args'
 
 PLATFORM_DATA
 

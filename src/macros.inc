@@ -28,14 +28,14 @@ macro align0 n
 
 builtin_symbols_prev = 0
 
-macro def_symbol str, value
+macro def_symbol name, str, value
 {
-local code_start, name_start, name_length, symbol_start
-    symbol_start:
+local code_start, name_start, name_length
+    name:
         dd  object.tag.symbol or object.tag.fixed
         dd  value
         dd  builtin_symbols_prev
-        builtin_symbols_prev = symbol_start
+        builtin_symbols_prev = name
         dd  name_length
     name_start:
         db  str
@@ -62,19 +62,19 @@ common
 
 macro def_proc str, value
 {
-local procedure_object
+local procedure_object, name
     procedure_object:
         dd  object.tag.native_procedure or object.tag.fixed
         dd  value
-def_symbol str, procedure_object
+def_symbol name, str, procedure_object
 }
 
 macro def_special str, value
 {
-local special_object
+local special_object, name
     special_object:
         dd  object.tag.native_special or object.tag.fixed
         dd  value
-def_symbol str, special_object
+def_symbol name, str, special_object
 }
 
