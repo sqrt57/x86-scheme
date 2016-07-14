@@ -26,6 +26,7 @@ object.tag.environment = 0x08
 object.tag.continuation = 0x09
 object.tag.native_procedure = 0x0a
 object.tag.native_special = 0x0b
+object.tag.lambda = 0x0c
 
 object.tag.fixed = 0x100
 
@@ -36,7 +37,9 @@ object_size.string = 0x08
 object_size.number = 0x08
 object_size.environment = 0x0c
 object_size.continuation = 0x18
-ovject_size.native_procedure = 0x08
+object_size.native_procedure = 0x08
+object_size.native_special = 0x08
+object_size.lambda = 0x10
 
 cons_cell.car = 0x04
 cons_cell.cdr = 0x08
@@ -62,6 +65,10 @@ continuation.z = 0x14
 
 native_procedure.code = 0x04
 native_special.code = 0x04
+
+lambda.args = 0x04
+lambda.body = 0x08
+lambda.environment = 0x0c
 
 memory_block_size = 1024*1024
 max_object_size = 4*1024
@@ -985,7 +992,7 @@ eval:
     .return_code:
         mov eax, [eval_argument]
         jmp .ret
-        
+
     .ret:
         pop ebx
         pop edi
@@ -1010,10 +1017,10 @@ eval:
     .symbol:
         ; Value bound to symbol becomes argument to next continuation
         mov eax, [eval_argument]
-        mov edx, [eax+symbol.value]
-        test edx, edx
+        ccall get_symbol_value, [eval_argument], [eval_environment]
+        test eax, eax
         jz .unbound_symbol
-        mov [eval_argument], edx
+        mov [eval_argument], eax
         ; Retrieve next continuation
         mov eax, [eval_current_continuation]
         mov eax, [eax+continuation.next]
@@ -1070,6 +1077,8 @@ eval:
         mov edx, [eax+object.tag]
         and edx, object.tag.type_mask
         cmp edx, object.tag.native_procedure
+        je .process_procedure
+        cmp edx, object.tag.lambda
         je .process_procedure
         cmp edx, object.tag.native_special
         je .process_special
@@ -1148,24 +1157,26 @@ eval:
         mov eax, edi
         xor edx, edx
         call reverse
-        mov ecx, [eax+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.cons_cell
-        je .do_apply_many_args
-        xor eax, eax
-        xor edx, edx
-        jmp .do_apply_select
-    .do_apply_many_args:
-        mov edx, [eax+cons_cell.cdr]
-        mov eax, [eax+cons_cell.car]
-    .do_apply_select:
+        mov edi, eax
         mov ecx, [ebx+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.native_procedure
-        je .do_apply_native_procedure
-        write do_apply_unknown_type
-        xor eax, eax
+        je .native_procedure_args
+        cmp ecx, object.tag.lambda
+        je .do_apply_lambda
+        mov eax, do_apply_unknown_type_str
         jmp .process_error
+    .native_procedure_args:
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        je .native_procedure_many_args
+        xor eax, eax
+        xor edx, edx
+        jmp .do_apply_native_procedure
+    .native_procedure_many_args:
+        mov edx, [eax+cons_cell.cdr]
+        mov eax, [eax+cons_cell.car]
     .do_apply_native_procedure:
         call dword [ebx+native_procedure.code]
         test ecx, ecx
@@ -1179,7 +1190,81 @@ eval:
     .native_error:
         mov eax, ecx
         jmp .process_error
-        
+    .do_apply_lambda:
+        ; EBX - procedure
+        ; ESI - procedure formal parameters list
+        ; EDI - list of evaluated arguments
+        mov esi, [ebx+lambda.args]
+        ccall memory_create_environment
+        mov edx, [eval_environment]
+        mov [eax+environment.parent], edx
+        mov [eval_environment], eax
+        ccall bind_parameters, esi, edi
+        test eax, eax
+        jz .lambda_args_count
+        mov edx, [eval_environment]
+        mov [edx+environment.bindings], eax
+        ccall memory_create_continuation, .pop_environment
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        ccall memory_create_continuation, .eval_list
+        mov ecx, [eval_current_continuation]
+        mov [eax+continuation.next], ecx
+        mov ecx, [ebx+lambda.body]
+        mov [eax+continuation.x], ecx
+        mov [eval_current_continuation], eax
+        xor eax, eax
+        mov [eval_argument], eax
+        mov dword [eval_args], empty_list
+        jmp .next
+    .lambda_args_count:
+        mov eax, lambda_args_count_str
+        jmp .process_error
+
+    .eval_list:
+        mov eax, [eval_current_continuation]
+        mov edx, [eax+continuation.x]
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .done_eval_list
+        cmp ecx, object.tag.cons_cell
+        je .eval_list_car
+        mov eax, lambda_body_syntax_str
+        jmp .process_error
+    .done_eval_list:
+        mov eax, [eax+continuation.next]
+        mov [eval_current_continuation], eax
+        jmp .next
+    .eval_list_car:
+        ccall memory_create_continuation, .eval_list
+        mov edx, [eval_current_continuation]
+        mov ecx, [edx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        mov esi, [edx+continuation.x]
+        mov ecx, [esi+cons_cell.cdr]
+        mov [eax+continuation.x], ecx
+        ccall memory_create_continuation, .eval
+        mov edx, [eval_current_continuation]
+        mov [eax+continuation.next], edx
+        mov [eval_current_continuation], eax
+        mov eax, [esi+cons_cell.car]
+        mov [eval_argument], eax
+        mov dword [eval_args], empty_list
+        jmp .next
+
+    .pop_environment:
+        mov eax, [eval_environment]
+        mov eax, [eax+environment.parent]
+        mov [eval_environment], eax
+        mov eax, [eval_current_continuation]
+        mov eax, [eax+continuation.next]
+        mov [eval_current_continuation], eax
+        jmp .next
+
     .process_args:
         ; Continuation fields:
         ; X - procedure object
@@ -1221,7 +1306,7 @@ eval:
     .error_args_list:
         mov eax, eval_error_args_list
         jmp .process_error
-         
+ 
     align0 4
     .eval_dispatch:
         dd  .unknown_type   ; Zero tag - incorrect object
@@ -1237,6 +1322,124 @@ eval:
         dd  .unknown_type   ; Native procedure
         ; Pad table to object.tag_ceiling entries
         dd  object.tag_ceiling-($-.eval_dispatch)/4  dup(.unknown_type)
+
+; Matches formal parameters to operands and creates
+; bindings list
+; In: 1) formal parameters list
+;     2) operands list
+; Out: bindings list, NULL if numbers don't match
+bind_parameters:
+        push ebp
+        mov ebp, esp
+        push esi
+        push edi
+        push ebx
+        mov esi, [ebp+0x08]
+        mov edi, [ebp+0x0c]
+        mov ecx, [esi+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .zero_formals
+        cmp ecx, object.tag.symbol
+        je .rest_args
+        cmp ecx, object.tag.cons_cell
+        je .next_formal
+        jmp .error
+    .zero_formals:
+        mov ecx, [edi+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        jne .error
+        mov eax, empty_list
+        jmp .ret
+    .rest_args:
+        ccall memory_create_cons_cell
+        mov [eax+cons_cell.car], esi
+        mov [eax+cons_cell.cdr], edi
+        mov ebx, eax
+        ccall memory_create_cons_cell
+        mov [eax+cons_cell.car], ebx
+        mov dword [eax+cons_cell.cdr], empty_list
+        mov ebx, eax
+        jmp .ret
+    .next_formal:
+        mov ecx, [edi+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne .error
+        ccall memory_create_cons_cell
+        mov ecx, [esi+cons_cell.car]
+        mov [eax+cons_cell.car], ecx
+        mov ecx, [edi+cons_cell.car]
+        mov [eax+cons_cell.cdr], ecx
+        mov ebx, eax
+        ccall memory_create_cons_cell
+        mov [eax+cons_cell.car], ebx
+        mov ebx, eax
+        ccall bind_parameters, [esi+cons_cell.cdr], [edi+cons_cell.cdr]
+        test eax, eax
+        jz .error
+        mov [ebx+cons_cell.cdr], eax
+        mov eax, ebx
+        jmp .ret
+    .error:
+        xor eax, eax
+        jmp .ret
+    .ret:
+        pop ebx
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
+        ret
+
+; Gets value bound to symbol
+; In: 1) Symbol
+;     2) Environment, NULL for global environment
+; Out: symbol value, NULL if not bound
+get_symbol_value:
+        push ebp
+        mov ebp, esp
+        push esi
+        push edi
+        push ebx
+        mov esi, [ebp+0x0c]
+        mov edi, [ebp+0x08]
+    .next_env:
+        test esi, esi
+        jz .global_env
+        mov edx, [esi+environment.bindings]
+        mov esi, [esi+environment.parent]
+    .next_binding:
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .next_env
+        cmp ecx, object.tag.cons_cell
+        jne .error
+        mov eax, [edx+cons_cell.car]
+        mov edx, [edx+cons_cell.cdr]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne .error
+        cmp edi, [eax+cons_cell.car]
+        jne .next_binding
+        mov eax, [eax+cons_cell.cdr]
+        jmp .ret
+    .error:
+        write environment_bindings_str
+        xor eax, eax
+        jmp .ret
+    .global_env:
+        mov eax, [edi+symbol.value]
+    .ret:
+        pop ebx
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
+        ret
 
 ; Allocates memory from heap
 ; In: 1) Size of memory block
@@ -1409,6 +1612,26 @@ memory_create_continuation:
         mov [eax+continuation.x], edx
         mov [eax+continuation.y], edx
         mov [eax+continuation.z], edx
+        ret
+
+; Allocates new lambda structure
+; Out: Allocated scheme object
+memory_create_lambda:
+        ccall memory_alloc, object_size.lambda
+        mov dword [eax+object.tag], object.tag.lambda
+        xor edx, edx
+        mov [eax+lambda.args], edx
+        mov [eax+lambda.body], edx
+        mov [eax+lambda.environment], edx
+        ret
+
+; Allocates new environment
+; Out: Allocated scheme object
+memory_create_environment:
+        ccall memory_alloc, object_size.environment
+        xor edx, edx
+        mov [eax+environment.parent], edx
+        mov [eax+environment.bindings], edx
         ret
 
 ; Copy block of memory
@@ -1864,6 +2087,38 @@ if_continuation:
         mov [eval_argument], ecx
         jmp eval.next
 
+lambda:
+        mov eax, [eval_argument]
+        test eax, eax
+        jz .error_no_args
+        mov edx, [eval_args]
+        test edx, edx
+        jz .body_syntax_error
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne .body_syntax_error
+        mov edx, [eval_current_continuation]
+        mov edx, [edx+continuation.next]
+        mov [eval_current_continuation], edx
+        ccall memory_create_lambda
+        mov edx, [eval_argument]
+        mov [eax+lambda.args], edx
+        mov edx, [eval_args]
+        mov [eax+lambda.body], edx
+        mov edx, [eval_environment]
+        mov [eax+lambda.environment], edx
+        mov [eval_argument], eax
+        xor eax, eax
+        mov [eval_args], eax
+        jmp eval.next
+    .error_no_args:
+        mov eax, lambda_no_args_str
+        jmp eval.process_error
+    .body_syntax_error:
+        mov eax, lambda_body_syntax_error_str
+        jmp eval.process_error
+
 PLATFORM_RDATA
 
 def_string newline, 0x0a
@@ -1910,12 +2165,12 @@ def_string operand_many_args, 'Eval error: cannot use multiple values ', \
     'as operand', 0x0a
 def_string operand_empty_arg, 'Eval error: no value returned for operand', \
     0x0a
-def_string do_apply_unknown_type, 'Eval error: cannot apply operator ', \
-    'of unknown type', 0x0a
 def_string exec_error_with_arg, 'Execution aborted with the following error: '
+def_string environment_bindings_str, \
+    'Eval error: error in environment bindings', 0x0a
 
 align0 4
-empty_list: dd object.tag.empty_list or object.tag.fixed
+empty_list dd object.tag.empty_list or object.tag.fixed
 def_proc '+', scheme_add
 def_proc '-', scheme_sub
 def_proc 'reverse', reverse
@@ -1928,6 +2183,7 @@ def_proc 'number->unsigned', number_to_unsigned
 def_proc 'eq?', scheme_eq
 def_special 'quote', quote
 def_special 'if', scheme_if
+def_special 'lambda', lambda
 def_symbol true, '#t', true
 def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
@@ -1938,6 +2194,14 @@ def_scheme_string quote_many_args_str, 'too many arguments to quote'
 def_scheme_string quote_no_args_str, 'no arguments to quote'
 def_scheme_string eval_error_args_list, 'syntax error in argument list'
 def_scheme_string eval_many_args_str, 'cannot eval many args'
+def_scheme_string lambda_no_args_str, 'syntax error in lambda arguments list'
+def_scheme_string lambda_body_syntax_error_str, 'syntax error in lambda body'
+def_scheme_string do_apply_unknown_type_str, 'cannot apply operator ', \
+    'of unknown type'
+def_scheme_string lambda_args_count_str, 'wrong number of arguments to lambda'
+def_scheme_string lambda_body_syntax_str, 'lambda body must be proper list'
+def_scheme_string environment_bindings_str, \
+    'Eval error: error in environment bindings', 0x0a
 
 PLATFORM_DATA
 
