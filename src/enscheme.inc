@@ -946,7 +946,7 @@ eval:
         eval_environment equ ebp-0x10
 
         xor eax, eax
-        mov [eval_args], eax
+        mov dword [eval_args], empty_list
         mov [eval_environment], eax
         mov eax, [ebp+0x08]
         mov [eval_argument], eax
@@ -968,8 +968,6 @@ eval:
 
     .eval:
         mov eax, [eval_args]
-        test eax, eax
-        jz .eval_many_args_ok
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.empty_list
@@ -1061,8 +1059,6 @@ eval:
 
     .apply_procedure_or_special:
         mov eax, [eval_args]
-        test eax, eax
-        jz .operator_many_args_ok
         mov eax, [eax+object.tag]
         and eax, object.tag.type_mask
         cmp eax, object.tag.empty_list
@@ -1111,7 +1107,7 @@ eval:
     .special_no_args:
         xor eax, eax
         mov [eval_argument], eax
-        mov [eval_args], eax
+        mov dword [eval_args], empty_list
         jmp dword [edi+native_special.code]
     .operator_empty_arg:
         write operator_empty_arg
@@ -1151,7 +1147,7 @@ eval:
         ; Pass CAR of unevaluated operands list as argument
         mov ecx, [esi+cons_cell.car]
         mov [eval_argument], ecx
-        mov dword [eval_args], 0
+        mov dword [eval_args], empty_list
         jmp .next
     .do_apply:
         mov eax, edi
@@ -1172,7 +1168,7 @@ eval:
         cmp ecx, object.tag.cons_cell
         je .native_procedure_many_args
         xor eax, eax
-        xor edx, edx
+        mov edx, empty_list
         jmp .do_apply_native_procedure
     .native_procedure_many_args:
         mov edx, [eax+cons_cell.cdr]
@@ -1271,8 +1267,6 @@ eval:
         ; Y - list of evaluated arguments in reverse order
         ; Z - list of rest unevaluated arguments
         mov eax, [eval_args]
-        test eax, eax
-        jz .process_args_many_args_ok
         mov eax, [eax+object.tag]
         and eax, object.tag.type_mask
         cmp eax, object.tag.empty_list
@@ -1657,6 +1651,16 @@ memcpy:
         pop ebp
         ret
 
+; Native scheme functions have the following calling conventions.
+; Input:
+; EAX - first argument, NULL if zero arguments
+; EDX - list of rest of arguments, EMPTY_LIST if zero or one argument
+; Output:
+; ECX - error object, NULL if everything is Ok
+;       If error object is non-null other return values are ignored
+; EAX - first result, NULL if zero results
+; EDX - list of rest of results, EMPTY_LIST if zero or one argument
+
 ; Reverse scheme list
 reverse:
         push ebp
@@ -1694,7 +1698,7 @@ reverse:
         jmp .ret
     .ok:
         mov eax, edi
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
     .ret:
         pop edi
@@ -1753,7 +1757,7 @@ scheme_add:
         ccall memory_create_signed, eax
         mov [eax+object.tag], edi
         xor ecx, ecx
-        xor edx, edx
+        mov edx, empty_list
         pop edi
         ret
 
@@ -1819,7 +1823,7 @@ scheme_sub:
         mov [eax+object.tag], edi
         pop edi
         xor ecx, ecx
-        xor edx, edx
+        mov edx, empty_list
         ret
 
 create_list:
@@ -1836,12 +1840,12 @@ create_list:
         pop ecx
         mov [eax+cons_cell.car], ecx
         mov [eax+cons_cell.cdr], edx
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
     .empty:
         mov eax, empty_list
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
 
@@ -1865,7 +1869,7 @@ cons:
         pop ecx
         mov [eax+cons_cell.car], ecx
         mov [eax+cons_cell.cdr], edx
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
 
@@ -1888,7 +1892,7 @@ car:
         cmp ecx, object.tag.cons_cell
         jne pair_expected
         mov eax, [eax+cons_cell.car]
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
 
@@ -1907,7 +1911,7 @@ cdr:
         cmp ecx, object.tag.cons_cell
         jne pair_expected
         mov eax, [eax+cons_cell.cdr]
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
 
@@ -1936,7 +1940,7 @@ number_to_signed:
     .convert:
         ccall memory_create_signed, [eax+number.value]
     .ret:
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
 
@@ -1961,7 +1965,7 @@ number_to_unsigned:
     .convert:
         ccall memory_create_unsigned, [eax+number.value]
     .ret:
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
 
@@ -1985,9 +1989,27 @@ scheme_eq:
     .equal:
         mov eax, true
     .ret:
-        xor edx, edx
+        mov edx, empty_list
         xor ecx, ecx
         ret
+
+; Native special forms have the following API.
+; They are working inside stack frame of eval.
+; They have access to the following variables (addressed base on EBP,
+; so EBP must be preserved when accessing them):
+; [eval_argument] - first argument, NULL if zero arguments
+; [eval_args] - list of rest of arguments, EMPTY_LIST if zero
+;               or one arguments
+; [eval_current_continuation] - current continuation, which contains
+;               ".apply_procedure_or_special" continuation.
+;               Code must at least update current continuation to
+;               NEXT field of current continuation
+; [eval_environment] - current environment, NULL if global environment
+;
+; Code may read these variables and update their values.
+; When finished, code must jump to "eval.next"
+; If an error occured, then code puts error object in EAX
+; and jumps to "eval.process_error"
 
 quote:
         mov eax, [eval_args]
@@ -2047,8 +2069,7 @@ scheme_if:
         mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
         mov [eval_current_continuation], eax
-        xor eax, eax
-        mov [eval_args], eax
+        mov dword [eval_args], empty_list
         jmp eval.next
     .wrong_args:
         mov eax, wrong_args_count_str
@@ -2059,8 +2080,6 @@ scheme_if:
 
 if_continuation:
         mov eax, [eval_args]
-        test eax, eax
-        jz .many_args_ok
         mov eax, [eax+object.tag]
         and eax, object.tag.type_mask
         cmp eax, object.tag.empty_list
@@ -2092,8 +2111,6 @@ lambda:
         test eax, eax
         jz .error_no_args
         mov edx, [eval_args]
-        test edx, edx
-        jz .body_syntax_error
         mov ecx, [edx+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.cons_cell
@@ -2109,8 +2126,7 @@ lambda:
         mov edx, [eval_environment]
         mov [eax+lambda.environment], edx
         mov [eval_argument], eax
-        xor eax, eax
-        mov [eval_args], eax
+        mov dword [eval_args], empty_list
         jmp eval.next
     .error_no_args:
         mov eax, lambda_no_args_str
