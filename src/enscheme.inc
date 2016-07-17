@@ -1151,7 +1151,7 @@ eval:
         jmp .next
     .do_apply:
         mov eax, edi
-        xor edx, edx
+        mov edx, empty_list
         call reverse
         mov edi, eax
         mov ecx, [ebx+object.tag]
@@ -1394,6 +1394,27 @@ bind_parameters:
 get_symbol_value:
         push ebp
         mov ebp, esp
+        ccall get_symbol_pair, [ebp+0x08], [ebp+0x0c]
+        test eax, eax
+        jz .global
+        mov eax, [eax+cons_cell.cdr]
+        jmp .ret
+    .global:
+        mov eax, [ebp+0x08]
+        mov eax, [eax+symbol.value]
+    .ret:
+        mov esp, ebp
+        pop ebp
+        ret
+
+; Gets value bound to symbol
+; In: 1) Symbol
+;     2) Environment, NULL for global environment
+; Out: pair from bindings list which contains symbol value in cdr
+;       NULL if symbol not boud or bound in global environment
+get_symbol_pair:
+        push ebp
+        mov ebp, esp
         push esi
         push edi
         push ebx
@@ -1419,14 +1440,13 @@ get_symbol_value:
         jne .error
         cmp edi, [eax+cons_cell.car]
         jne .next_binding
-        mov eax, [eax+cons_cell.cdr]
         jmp .ret
     .error:
-        write environment_bindings_str
+        write environment_bindings
         xor eax, eax
         jmp .ret
     .global_env:
-        mov eax, [edi+symbol.value]
+        xor eax, eax
     .ret:
         pop ebx
         pop edi
@@ -1663,22 +1683,13 @@ memcpy:
 
 ; Reverse scheme list
 reverse:
+        ensure_procedure_args 1
         push ebp
         mov ebp, esp
         push esi
         push edi
 
-        test edx, edx
-        jz .start
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        je .start
-        jmp .error
-    .start:
         mov esi, eax
-        test esi, esi
-        jz .error
         mov edi, empty_list
     .next:
         mov ecx, [esi+object.tag]
@@ -1692,10 +1703,6 @@ reverse:
         mov edi, eax
         mov esi, [esi+cons_cell.cdr]
         jmp .next
-
-    .error:
-        mov ecx, wrong_args_count
-        jmp .ret
     .ok:
         mov eax, edi
         mov edx, empty_list
@@ -1850,17 +1857,7 @@ create_list:
         ret
 
 cons:
-        test eax, eax
-        jz wrong_args_count
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.cons_cell
-        jne wrong_args_count
-        mov ecx, [edx+cons_cell.cdr]
-        mov ecx, [ecx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        jne wrong_args_count
+        ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]
         push eax
         push edx
@@ -1873,20 +1870,8 @@ cons:
         xor ecx, ecx
         ret
 
-wrong_args_count:
-        mov ecx, wrong_args_count_str
-        ret
-
 car:
-        test eax, eax
-        jz wrong_args_count
-        test edx, edx
-        jz .ok_args
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        jne wrong_args_count
-    .ok_args:
+        ensure_procedure_args 1
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.cons_cell
@@ -1897,15 +1882,7 @@ car:
         ret
 
 cdr:
-        test eax, eax
-        jz wrong_args_count
-        test edx, edx
-        jz .ok_args
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        jne wrong_args_count
-    .ok_args:
+        ensure_procedure_args 1
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.cons_cell
@@ -1920,15 +1897,7 @@ pair_expected:
         ret
 
 number_to_signed:
-        test eax, eax
-        jz wrong_args_count
-        test edx, edx
-        jz .ok_args
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        jne wrong_args_count
-    .ok_args:
+        ensure_procedure_args 1
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.signed
@@ -1945,15 +1914,7 @@ number_to_signed:
         ret
 
 number_to_unsigned:
-        test eax, eax
-        jz wrong_args_count
-        test edx, edx
-        jz .ok_args
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        jne wrong_args_count
-    .ok_args:
+        ensure_procedure_args 1
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.unsigned
@@ -1970,17 +1931,7 @@ number_to_unsigned:
         ret
 
 scheme_eq:
-        test eax, eax
-        jz wrong_args_count
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.cons_cell
-        jne wrong_args_count
-        mov ecx, [edx+cons_cell.cdr]
-        mov ecx, [ecx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        jne wrong_args_count
+        ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]
         cmp eax, edx
         je .equal
@@ -2012,90 +1963,40 @@ scheme_eq:
 ; and jumps to "eval.process_error"
 
 quote:
-        mov eax, [eval_args]
-        test eax, eax
-        jz .many_args_ok
-        mov eax, [eax+object.tag]
-        and eax, object.tag.type_mask
-        cmp eax, object.tag.empty_list
-        je .many_args_ok
-        mov eax, quote_many_args_str
-        jmp eval.process_error
-    .many_args_ok:
-        mov eax, [eval_argument]
-        test eax, eax
-        jz .no_args
+        ensure_special_args 1, quote_args_str, special_bad_syntax
         mov ecx, [eval_current_continuation]
         mov ecx, [ecx+continuation.next]
         mov [eval_current_continuation], ecx
         jmp eval.next
-    .no_args:
-        mov eax, quote_no_args_str
-        jmp eval.process_error
 
 scheme_if:
-        mov eax, [eval_argument]
-        test eax, eax
-        jz .wrong_args
+        ensure_special_args 3, if_args_str, special_bad_syntax
         ccall memory_create_continuation, if_continuation
         mov ecx, [eval_current_continuation]
         mov ecx, [ecx+continuation.next]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
         mov edx, [eval_args]
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        je .wrong_args
-        cmp ecx, object.tag.cons_cell
-        jne .arg_list_error
         mov ecx, [edx+cons_cell.car]
         mov [eax+continuation.x], ecx
         mov edx, [edx+cons_cell.cdr]
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        je .wrong_args
-        cmp ecx, object.tag.cons_cell
-        jne .arg_list_error
         mov ecx, [edx+cons_cell.car]
         mov [eax+continuation.y], ecx
-        mov edx, [edx+cons_cell.cdr]
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.empty_list
-        jne .wrong_args
         ccall memory_create_continuation, eval.eval
         mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
         mov [eval_current_continuation], eax
         mov dword [eval_args], empty_list
         jmp eval.next
-    .wrong_args:
-        mov eax, wrong_args_count_str
-        jmp eval.process_error
-    .arg_list_error:
-        mov eax, eval_error_args_list
-        jmp eval.process_error
 
 if_continuation:
-        mov eax, [eval_args]
-        mov eax, [eax+object.tag]
-        and eax, object.tag.type_mask
-        cmp eax, object.tag.empty_list
-        je .many_args_ok
-    .no_args:
-        mov eax, wrong_args_count_str
-        jmp eval.process_error
-    .many_args_ok:
+        ensure_special_args_simple 1
         ccall memory_create_continuation, eval.eval
         mov edx, [eval_current_continuation]
         mov ecx, [edx+continuation.next]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
         mov ecx, [eval_argument]
-        test ecx, ecx
-        jz .no_args
         cmp ecx, false
         je .false
         mov ecx, [edx+continuation.x]
@@ -2133,6 +2034,94 @@ lambda:
         jmp eval.process_error
     .body_syntax_error:
         mov eax, lambda_body_syntax_error_str
+        jmp eval.process_error
+
+scheme_define:
+        ensure_special_args 2, define_args_count, define_bad_syntax
+        mov ecx, [eval_argument]
+        mov ecx, [ecx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.symbol
+        je .ok
+        mov eax, define_symbol_required
+        jmp eval.process_error
+    .ok:
+        ccall memory_create_continuation, define_continuation
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov ecx, [eval_argument]
+        mov [eax+continuation.x], ecx
+        mov [eval_current_continuation], eax
+        ccall memory_create_continuation, eval.eval
+        mov ecx, [eval_current_continuation]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        mov eax, [eval_args]
+        mov eax, [eax+cons_cell.car]
+        mov [eval_argument], eax
+        mov dword [eval_args], empty_list
+        jmp eval.next
+
+define_continuation:
+        ensure_special_args_simple 1
+        push esi
+        push edi
+        mov edi, [eval_current_continuation]
+        mov ecx, [edi+continuation.next]
+        mov [eval_current_continuation], ecx
+        mov edi, [edi+continuation.x]
+        mov esi, [eval_environment]
+        test esi, esi
+        jz .global
+        mov edx, [esi+environment.bindings]
+    .next_binding:
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je .not_found
+        cmp ecx, object.tag.cons_cell
+        jne .error
+        mov eax, [edx+cons_cell.car]
+        mov edx, [edx+cons_cell.cdr]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne .error
+        cmp edi, [eax+cons_cell.car]
+        jne .next_binding
+    .already_bound:
+        mov eax, define_already_bound
+        pop edi
+        pop esi
+        jmp eval.process_error
+    .not_found:
+        ccall memory_create_cons_cell
+        mov [eax+cons_cell.car], edi
+        mov ecx, [eval_argument]
+        mov [eax+cons_cell.cdr], ecx
+        mov edi, eax
+        ccall memory_create_cons_cell
+        mov [eax+cons_cell.car], edi
+        mov ecx, [esi+environment.bindings]
+        mov [eax+cons_cell.cdr], ecx
+        mov [esi+environment.bindings], eax
+        pop edi
+        pop esi
+        jmp eval.next
+    .global:
+        mov eax, [edi+symbol.value]
+        test eax, eax
+        jnz .already_bound
+        mov ecx, [eval_argument]
+        mov [edi+symbol.value], ecx
+        pop edi
+        pop esi
+        jmp eval.next
+    .error:
+        mov eax, environment_error
+        pop edi
+        pop esi
         jmp eval.process_error
 
 PLATFORM_RDATA
@@ -2182,7 +2171,7 @@ def_string operand_many_args, 'Eval error: cannot use multiple values ', \
 def_string operand_empty_arg, 'Eval error: no value returned for operand', \
     0x0a
 def_string exec_error_with_arg, 'Execution aborted with the following error: '
-def_string environment_bindings_str, \
+def_string environment_bindings, \
     'Eval error: error in environment bindings', 0x0a
 
 align0 4
@@ -2200,14 +2189,15 @@ def_proc 'eq?', scheme_eq
 def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
+def_special 'define', scheme_define
 def_symbol true, '#t', true
 def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
 def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
+def_scheme_string special_bad_syntax, 'syntax error in special form call'
 def_scheme_string pair_expected_str, 'pair expected'
-def_scheme_string quote_many_args_str, 'too many arguments to quote'
-def_scheme_string quote_no_args_str, 'no arguments to quote'
+def_scheme_string quote_args_str, 'wrong number of  arguments to quote'
 def_scheme_string eval_error_args_list, 'syntax error in argument list'
 def_scheme_string eval_many_args_str, 'cannot eval many args'
 def_scheme_string lambda_no_args_str, 'syntax error in lambda arguments list'
@@ -2216,8 +2206,13 @@ def_scheme_string do_apply_unknown_type_str, 'cannot apply operator ', \
     'of unknown type'
 def_scheme_string lambda_args_count_str, 'wrong number of arguments to lambda'
 def_scheme_string lambda_body_syntax_str, 'lambda body must be proper list'
-def_scheme_string environment_bindings_str, \
-    'Eval error: error in environment bindings', 0x0a
+def_scheme_string define_args_count, 'wrong number of arguments to define'
+def_scheme_string define_bad_syntax, 'bad syntax of define'
+def_scheme_string if_args_str, '3 arguments expected for "if"'
+def_scheme_string define_symbol_required, \
+        'first argument to define must be a symbol'
+def_scheme_string define_already_bound, 'define: symbol already bound'
+def_scheme_string environment_error, 'environment structure corrupted'
 
 PLATFORM_DATA
 

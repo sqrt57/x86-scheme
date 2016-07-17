@@ -78,3 +78,96 @@ local special_object, name
 def_symbol name, str, special_object
 }
 
+macro ensure_procedure_args n
+{
+local wrong_count, bad_syntax, ok
+if n = 0
+        test eax, eax
+        jnz wrong_count
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je ok
+    wrong_count:
+        mov ecx, count_str
+        ret
+    ok:
+else
+        push edx
+        test eax, eax
+        jz wrong_count
+repeat (n-1)
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je wrong_count
+        cmp ecx, object.tag.cons_cell
+        jne bad_syntax
+        mov edx, [edx+cons_cell.cdr]
+end repeat
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je ok
+    wrong_count:
+        pop edx
+        mov ecx, wrong_args_count_str
+        ret
+    bad_syntax:
+        pop edx
+        mov ecx, arg_list_error
+        ret
+    ok:
+        pop edx
+end if
+}
+
+macro ensure_special_args_simple n
+{
+    ensure_special_args n, wrong_args_count_str, arg_list_error
+}
+
+macro ensure_special_args n, count_str, syntax_str
+{
+local wrong_count, bad_syntax, ok
+if n = 0
+        mov eax, [eval_argument]
+        test eax, eax
+        jnz wrong_count
+        mov eax, [eval_args]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je ok
+    wrong_count:
+        mov eax, count_str
+        jmp eval.process_error
+    ok:
+else
+        mov eax, [eval_argument]
+        test eax, eax
+        jz wrong_count
+        mov eax, [eval_args]
+repeat (n-1)
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je wrong_count
+        cmp ecx, object.tag.cons_cell
+        jne bad_syntax
+        mov eax, [eax+cons_cell.cdr]
+end repeat
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je ok
+    wrong_count:
+        mov eax, count_str
+        jmp eval.process_error
+    bad_syntax:
+        mov eax, syntax_str
+        jmp eval.process_error
+    ok:
+end if
+}
+
