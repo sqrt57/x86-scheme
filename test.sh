@@ -1,4 +1,4 @@
 #!/bin/sh
 . ./build.sh
-build/enscheme "$@"
+build/enscheme src/test.scm "$@"
 
