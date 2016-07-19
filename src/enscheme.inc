@@ -104,8 +104,6 @@ length:
         mov eax, ecx
         ret
 
-; def_string input, '(+ "s")'
-
 ; Cross-platform entry point
 ; In: 1) argc - count of command-line arguments
 ;     2) argv - array of argument adresses
@@ -115,10 +113,6 @@ main:
         .argc equ ebp+0x08
         .argv equ ebp+0x0c
         .argl equ ebp+0x10
-
-        ; ccall parse, input_str, input_len
-        ; ccall eval, eax
-        ; ccall print, eax
 
         ; EBX stores current state:
         ;   0: Normal state
@@ -251,8 +245,10 @@ exec_string:
         jz .ret
         mov esi, edx
         ccall eval, eax
+        test edx, edx
+        jnz .error
         test eax, eax
-        jz .error
+        jz .next
         ccall print, eax
         jmp .next
 
@@ -989,6 +985,7 @@ eval:
 
     .return_code:
         mov eax, [eval_argument]
+        xor edx, edx
         jmp .ret
 
     .ret:
@@ -1407,7 +1404,7 @@ get_symbol_value:
         pop ebp
         ret
 
-; Gets value bound to symbol
+; Gets cons cell with symbol binding
 ; In: 1) Symbol
 ;     2) Environment, NULL for global environment
 ; Out: pair from bindings list which contains symbol value in cdr
@@ -2090,11 +2087,14 @@ define_continuation:
         jne .error
         cmp edi, [eax+cons_cell.car]
         jne .next_binding
-    .already_bound:
-        mov eax, define_already_bound
+        mov ecx, [eval_argument]
+        mov [eax+cons_cell.cdr], ecx
+    .ret:
+        xor eax, eax
+        mov [eval_argument], eax
         pop edi
         pop esi
-        jmp eval.process_error
+        jmp eval.next
     .not_found:
         ccall memory_create_cons_cell
         mov [eax+cons_cell.car], edi
@@ -2106,20 +2106,73 @@ define_continuation:
         mov ecx, [esi+environment.bindings]
         mov [eax+cons_cell.cdr], ecx
         mov [esi+environment.bindings], eax
+        jmp .ret
+    .global:
+        mov ecx, [eval_argument]
+        mov [edi+symbol.value], ecx
+        jmp .ret
+    .error:
+        mov eax, environment_error
+        pop edi
+        pop esi
+        jmp eval.process_error
+
+scheme_set:
+        ensure_special_args 2, set_args_count, set_bad_syntax
+        mov ecx, [eval_argument]
+        mov ecx, [ecx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.symbol
+        je .ok
+        mov eax, define_symbol_required
+        jmp eval.process_error
+    .ok:
+        ccall memory_create_continuation, set_continuation
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov ecx, [eval_argument]
+        mov [eax+continuation.x], ecx
+        mov [eval_current_continuation], eax
+        ccall memory_create_continuation, eval.eval
+        mov ecx, [eval_current_continuation]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        mov eax, [eval_args]
+        mov eax, [eax+cons_cell.car]
+        mov [eval_argument], eax
+        mov dword [eval_args], empty_list
+        jmp eval.next
+
+set_continuation:
+        ensure_special_args_simple 1
+        push esi
+        push edi
+        mov edi, [eval_current_continuation]
+        mov ecx, [edi+continuation.next]
+        mov [eval_current_continuation], ecx
+        mov edi, [edi+continuation.x]
+        mov esi, [eval_environment]
+        ccall get_symbol_pair, edi, esi
+        test eax, eax
+        jz .global
+        mov ecx, [eval_argument]
+        mov [eax+cons_cell.cdr], ecx
+    .ret:
+        xor eax, eax
+        mov [eval_argument], eax
         pop edi
         pop esi
         jmp eval.next
     .global:
         mov eax, [edi+symbol.value]
         test eax, eax
-        jnz .already_bound
+        jz .not_bound
         mov ecx, [eval_argument]
         mov [edi+symbol.value], ecx
-        pop edi
-        pop esi
-        jmp eval.next
-    .error:
-        mov eax, environment_error
+        jmp .ret
+    .not_bound:
+        mov eax, set_not_bound
         pop edi
         pop esi
         jmp eval.process_error
@@ -2190,6 +2243,7 @@ def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
 def_special 'define', scheme_define
+def_special 'set!', scheme_set
 def_symbol true, '#t', true
 def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
@@ -2208,11 +2262,13 @@ def_scheme_string lambda_args_count_str, 'wrong number of arguments to lambda'
 def_scheme_string lambda_body_syntax_str, 'lambda body must be proper list'
 def_scheme_string define_args_count, 'wrong number of arguments to define'
 def_scheme_string define_bad_syntax, 'bad syntax of define'
+def_scheme_string set_args_count, 'wrong number of arguments to set'
+def_scheme_string set_bad_syntax, 'bad syntax of set'
 def_scheme_string if_args_str, '3 arguments expected for "if"'
 def_scheme_string define_symbol_required, \
         'first argument to define must be a symbol'
-def_scheme_string define_already_bound, 'define: symbol already bound'
 def_scheme_string environment_error, 'environment structure corrupted'
+def_scheme_string set_not_bound, 'set! error: symbol not bound'
 
 PLATFORM_DATA
 
