@@ -976,7 +976,19 @@ eval:
         jz .eval_zero_args
         mov edx, [eax+object.tag]
         and edx, object.tag.type_mask
-        jmp dword [.eval_dispatch+edx*4]
+        cmp edx, object.tag.cons_cell
+        je .cons_cell
+        cmp edx, object.tag.symbol
+        je .symbol
+        cmp edx, object.tag.signed
+        je .self
+        cmp edx, object.tag.unsigned
+        je .self
+        cmp edx, object.tag.string
+        je .self
+        cmp edx, object.tag.bytevector
+        je .self
+        jmp .unknown_type
 
     .eval_zero_args:
         write eval_zero_args
@@ -1297,22 +1309,6 @@ eval:
     .error_args_list:
         mov eax, eval_error_args_list
         jmp .process_error
- 
-    align0 4
-    .eval_dispatch:
-        dd  .unknown_type   ; Zero tag - incorrect object
-        dd  .unknown_type   ; Empty list
-        dd  .cons_cell
-        dd  .symbol
-        dd  .self           ; String
-        dd  .self           ; Signed number
-        dd  .self           ; Unsigned number
-        dd  .self           ; Bytevector
-        dd  .unknown_type   ; Environment
-        dd  .unknown_type   ; Continuation
-        dd  .unknown_type   ; Native procedure
-        ; Pad table to object.tag_ceiling entries
-        dd  object.tag_ceiling-($-.eval_dispatch)/4  dup(.unknown_type)
 
 ; Matches formal parameters to operands and creates
 ; bindings list
