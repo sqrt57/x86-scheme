@@ -1666,15 +1666,13 @@ reverse:
         ret
 
 scheme_add:
-        push edi
         test eax, eax
         jz .done
-        mov edi, [eax+object.tag]
-        and edi, object.tag.type_mask
-        cmp edi, object.tag.number
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
         je .first_ok
         mov ecx, arithmetic_error
-        pop edi
         ret
     .first_ok:
         mov eax, [eax+number.value]
@@ -1688,7 +1686,6 @@ scheme_add:
         cmp ecx, object.tag.empty_list
         je .done
         mov ecx, arg_list_error
-        pop edi
         ret
     .get_car:
         push ebx
@@ -1700,7 +1697,6 @@ scheme_add:
         je .next_ok
         pop ebx
         mov ecx, arithmetic_error
-        pop edi
         ret
     .next_ok:
         mov ecx, [ebx+number.value]
@@ -1709,19 +1705,17 @@ scheme_add:
         jmp .next
     .done:
         ccall memory_create_number, eax
-        mov [eax+object.tag], edi
         xor ecx, ecx
         mov edx, empty_list
-        pop edi
         ret
 
 scheme_sub:
-        push edi
         push esi
         test eax, eax
         jz .done
-        mov edi, [eax+object.tag]
-        and edi, object.tag.type_mask
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
         je .first_ok
         mov ecx, arithmetic_error
         ret
@@ -1739,7 +1733,6 @@ scheme_sub:
         je .done
         mov ecx, arg_list_error
         pop esi
-        pop edi
         ret
     .get_car:
         mov esi, 1
@@ -1752,7 +1745,6 @@ scheme_sub:
         je .next_ok
         pop ebx
         pop esi
-        pop edi
         mov ecx, arithmetic_error
         ret
     .next_ok:
@@ -1769,8 +1761,6 @@ scheme_sub:
     .done1:
         pop esi
         ccall memory_create_number, eax
-        mov [eax+object.tag], edi
-        pop edi
         xor ecx, ecx
         mov edx, empty_list
         ret
