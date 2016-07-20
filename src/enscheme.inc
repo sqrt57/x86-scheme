@@ -18,15 +18,14 @@ object.tag.empty_list = 0x01
 object.tag.cons_cell = 0x02
 object.tag.symbol = 0x03
 object.tag.string = 0x04
-object.tag.signed = 0x05
-object.tag.unsigned = 0x06
-object.tag.bytevector = 0x07
-object.tag.environment = 0x08
+object.tag.number = 0x05
+object.tag.bytevector = 0x06
+object.tag.environment = 0x07
 ; Continuation, has 4 additional fields
-object.tag.continuation = 0x09
-object.tag.native_procedure = 0x0a
-object.tag.native_special = 0x0b
-object.tag.lambda = 0x0c
+object.tag.continuation = 0x08
+object.tag.native_procedure = 0x09
+object.tag.native_special = 0x0a
+object.tag.lambda = 0x0b
 
 object.tag.fixed = 0x100
 
@@ -581,7 +580,7 @@ parse:
         dec ecx
         jmp .parse_number_digit
     .parse_number_end:
-        ccall memory_create_signed, eax
+        ccall memory_create_number, eax
         mov [.result], eax
         pop esi
         pop ebx
@@ -699,10 +698,8 @@ print:
         jz .null
         mov edx, [eax+object.tag]
         and edx, object.tag.type_mask
-        cmp edx, object.tag.unsigned
-        je .unsigned
-        cmp edx, object.tag.signed
-        je .signed
+        cmp edx, object.tag.number
+        je .number
         cmp edx, object.tag.string
         je .string
         cmp edx, object.tag.symbol
@@ -714,40 +711,13 @@ print:
         write core_unknown_object
         ret
 
-    .unsigned:
+    .number:
         push ebp
         mov ebp, esp
-        .unsigned_buf_end equ ebp
+        .number_buf_end equ ebp
         sub esp, 0x0c
         push edi
-        lea edi, [.unsigned_buf_end]
-        mov eax, [eax+number.value]
-        mov ecx, 10
-    .unsigned_next:
-        xor edx, edx
-        div ecx
-        add edx, '0'
-        dec edi
-        mov byte [edi], dl
-        test eax, eax
-        jnz .unsigned_next
-
-        lea eax, [.unsigned_buf_end]
-        sub eax, edi
-        ccall write_string, edi, eax
-
-        pop edi
-        mov esp, ebp
-        pop ebp
-        ret
-
-    .signed:
-        push ebp
-        mov ebp, esp
-        .signed_buf_end equ ebp
-        sub esp, 0x0c
-        push edi
-        lea edi, [.signed_buf_end]
+        lea edi, [.number_buf_end]
         mov eax, [eax+number.value]
         test eax, eax
         jns .positive
@@ -757,11 +727,11 @@ print:
         mov edx, '-'
         dec edi
         mov byte [edi], dl
-        jmp .do_print_signed
+        jmp .do_print_number
     .positive:
         call .convert_positive
-    .do_print_signed:
-        lea eax, [.signed_buf_end]
+    .do_print_number:
+        lea eax, [.number_buf_end]
         sub eax, edi
         ccall write_string, edi, eax
         pop edi
@@ -771,14 +741,14 @@ print:
 
     .convert_positive:
         mov ecx, 10
-    .signed_next:
+    .number_next:
         xor edx, edx
         div ecx
         add edx, '0'
         dec edi
         mov byte [edi], dl
         test eax, eax
-        jnz .signed_next
+        jnz .number_next
         ret
 
     .string:
@@ -980,9 +950,7 @@ eval:
         je .cons_cell
         cmp edx, object.tag.symbol
         je .symbol
-        cmp edx, object.tag.signed
-        je .self
-        cmp edx, object.tag.unsigned
+        cmp edx, object.tag.number
         je .self
         cmp edx, object.tag.string
         je .self
@@ -1518,22 +1486,12 @@ memory_alloc:
         cmp edx, ecx
         ret
 
-; Allocates unsigned number on the heap
-; In: 1) Value of unsigned number
+; Allocates number on the heap
+; In: 1) Value of number number
 ; Out: Allocated scheme object
-memory_create_unsigned:
+memory_create_number:
         ccall memory_alloc, object_size.number
-        mov dword [eax+object.tag], object.tag.unsigned
-        mov edx, [esp+0x04]
-        mov [eax+number.value], edx
-        ret
-
-; Allocates signed number on the heap
-; In: 1) Value of signed number
-; Out: Allocated scheme object
-memory_create_signed:
-        ccall memory_alloc, object_size.number
-        mov dword [eax+object.tag], object.tag.signed
+        mov dword [eax+object.tag], object.tag.number
         mov edx, [esp+0x04]
         mov [eax+number.value], edx
         ret
@@ -1713,9 +1671,7 @@ scheme_add:
         jz .done
         mov edi, [eax+object.tag]
         and edi, object.tag.type_mask
-        cmp edi, object.tag.unsigned
-        je .first_ok
-        cmp edi, object.tag.signed
+        cmp edi, object.tag.number
         je .first_ok
         mov ecx, arithmetic_error
         pop edi
@@ -1740,9 +1696,7 @@ scheme_add:
         mov edx, [edx+cons_cell.cdr]
         mov ecx, [ebx+object.tag]
         and ecx, object.tag.type_mask
-        cmp ecx, object.tag.unsigned
-        je .next_ok
-        cmp ecx, object.tag.signed
+        cmp ecx, object.tag.number
         je .next_ok
         pop ebx
         mov ecx, arithmetic_error
@@ -1754,7 +1708,7 @@ scheme_add:
         pop ebx
         jmp .next
     .done:
-        ccall memory_create_signed, eax
+        ccall memory_create_number, eax
         mov [eax+object.tag], edi
         xor ecx, ecx
         mov edx, empty_list
@@ -1768,9 +1722,6 @@ scheme_sub:
         jz .done
         mov edi, [eax+object.tag]
         and edi, object.tag.type_mask
-        cmp edi, object.tag.unsigned
-        je .first_ok
-        cmp edi, object.tag.signed
         je .first_ok
         mov ecx, arithmetic_error
         ret
@@ -1797,9 +1748,7 @@ scheme_sub:
         mov edx, [edx+cons_cell.cdr]
         mov ecx, [ebx+object.tag]
         and ecx, object.tag.type_mask
-        cmp ecx, object.tag.unsigned
-        je .next_ok
-        cmp ecx, object.tag.signed
+        cmp ecx, object.tag.number
         je .next_ok
         pop ebx
         pop esi
@@ -1819,7 +1768,7 @@ scheme_sub:
         inc eax
     .done1:
         pop esi
-        ccall memory_create_signed, eax
+        ccall memory_create_number, eax
         mov [eax+object.tag], edi
         pop edi
         xor ecx, ecx
@@ -1887,40 +1836,6 @@ cdr:
 
 pair_expected:
         mov ecx, pair_expected_str
-        ret
-
-number_to_signed:
-        ensure_procedure_args 1
-        mov ecx, [eax+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.signed
-        je .ret
-        cmp ecx, object.tag.unsigned
-        je .convert
-        mov ecx, arithmetic_error
-        ret
-    .convert:
-        ccall memory_create_signed, [eax+number.value]
-    .ret:
-        mov edx, empty_list
-        xor ecx, ecx
-        ret
-
-number_to_unsigned:
-        ensure_procedure_args 1
-        mov ecx, [eax+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.unsigned
-        je .ret
-        cmp ecx, object.tag.signed
-        je .convert
-        mov ecx, arithmetic_error
-        ret
-    .convert:
-        ccall memory_create_unsigned, [eax+number.value]
-    .ret:
-        mov edx, empty_list
-        xor ecx, ecx
         ret
 
 scheme_eq:
@@ -2232,8 +2147,6 @@ def_proc 'list', create_list
 def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr
-def_proc 'number->signed', number_to_signed
-def_proc 'number->unsigned', number_to_unsigned
 def_proc 'eq?', scheme_eq
 def_special 'quote', quote
 def_special 'if', scheme_if
