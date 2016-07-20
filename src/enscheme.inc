@@ -1842,6 +1842,84 @@ scheme_eq:
         xor ecx, ecx
         ret
 
+arithmetic_equals:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [eax+number.value]
+        cmp ecx, [edx+number.value]
+        je .equal
+        mov eax, false
+        jmp .ret
+    .equal:
+        mov eax, true
+    .ret:
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret
+
+arithmetic_less:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [eax+number.value]
+        cmp ecx, [edx+number.value]
+        jl .less
+        mov eax, false
+        jmp .ret
+    .less:
+        mov eax, true
+    .ret:
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret
+
+arithmetic_greater:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [eax+number.value]
+        cmp ecx, [edx+number.value]
+        jg .greater
+        mov eax, false
+        jmp .ret
+    .greater:
+        mov eax, true
+    .ret:
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret
+
 ; Native special forms have the following API.
 ; They are working inside stack frame of eval.
 ; They have access to the following variables (addressed base on EBP,
@@ -2138,6 +2216,9 @@ def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr
 def_proc 'eq?', scheme_eq
+def_proc '=', arithmetic_equals
+def_proc '<', arithmetic_less
+def_proc '>', arithmetic_greater
 def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
