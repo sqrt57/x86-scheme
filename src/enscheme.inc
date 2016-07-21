@@ -1492,10 +1492,12 @@ memory_alloc:
     .doalloc:
         mov esi, [eax+block.free]
         mov edx, esi
-        add esi, [ebp+0x08]
-        ; Align esi to 4 bytes
-        add esi, 3
-        and esi, 0xfffffffc
+        ; Align ecx to 4 bytes
+        mov ecx, [ebp+0x08]
+        add ecx, 3
+        and ecx, 0xfffffffc
+        add esi, ecx
+        add [mem_allocated], ecx
         mov [eax+block.free], esi
         mov eax, edx
 
@@ -1518,6 +1520,7 @@ memory_alloc:
         ccall malloc, memory_block_size
         test eax, eax
         jz .out_of_memory
+        add [mem_occupied], memory_block_size
         mov dword [eax+block.size], memory_block_size
         mov edx, [mem_alloclist]
         mov [eax+block.next], edx
@@ -1979,6 +1982,24 @@ arithmetic_greater:
         mov ecx, arithmetic_error
         ret
 
+mem_allocated_proc:
+        ensure_procedure_args 0
+        ccall memory_create_number
+        mov ecx, [mem_allocated]
+        mov [eax+number.value], ecx
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
+mem_occupied_proc:
+        ensure_procedure_args 0
+        ccall memory_create_number
+        mov ecx, [mem_occupied]
+        mov [eax+number.value], ecx
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
 ; Native special forms have the following API.
 ; They are working inside stack frame of eval.
 ; They have access to the following variables (addressed base on EBP,
@@ -2318,6 +2339,8 @@ def_proc 'eq?', scheme_eq
 def_proc '=', arithmetic_equals
 def_proc '<', arithmetic_less
 def_proc '>', arithmetic_greater
+def_proc 'mem-allocated', mem_allocated_proc
+def_proc 'mem-occupied', mem_occupied_proc
 def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
@@ -2362,6 +2385,8 @@ PLATFORM_DATA
         symbols         dd  0
         mem_freelist    dd  0
         mem_alloclist   dd  0
+        mem_allocated   dd  0
+        mem_occupied    dd  0
 
 builtin_symbols_bindings
 

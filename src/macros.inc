@@ -116,7 +116,7 @@ if n = 0
         cmp ecx, object.tag.empty_list
         je ok
     wrong_count:
-        mov ecx, count_str
+        mov ecx, wrong_args_count_str
         ret
     ok:
 else
