@@ -28,12 +28,14 @@ macro align0 n
 
 builtin_symbols_prev = 0
 
+builtin_symbols_list equ
+
 macro def_symbol name, str, value
 {
 local code_start, name_start, name_length
     name:
         dd  object.tag.symbol or object.tag.fixed
-        dd  value
+        dd  name#_symbol_binding
         dd  builtin_symbols_prev
         builtin_symbols_prev = name
         dd  name_length
@@ -42,6 +44,31 @@ local code_start, name_start, name_length
         name_length = $-name_start
         db  0
         align0 4
+builtin_symbols_list equ builtin_symbols_list name
+name#_symbol_value equ value
+}
+
+macro builtin_symbols_bindings
+{
+    match params, builtin_symbols_list
+    \{
+        irps name, params
+        \\{
+        name\\#_symbol_binding:
+            dd  object.tag.cons_cell or object.tag.fixed
+            dd  name
+            dd  name\\#_symbol_value
+        \\}
+    \}
+}
+
+macro symbol_bindings [name]
+{
+forward
+    name#_symbol_binding:
+        dd  object.tag.cons_cell or object.tag.fixed
+        dd  name
+        dd  name#_symbol_value
 }
 
 macro def_scheme_string name, [value]

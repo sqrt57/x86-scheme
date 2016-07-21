@@ -43,7 +43,7 @@ object_size.lambda = 0x10
 cons_cell.car = 0x04
 cons_cell.cdr = 0x08
 
-symbol.value = 0x04
+symbol.binding = 0x04
 symbol.next = 0x08
 symbol.name_length = 0x0c
 symbol.name_data = 0x10
@@ -1357,12 +1357,9 @@ get_symbol_value:
         mov ebp, esp
         ccall get_symbol_pair, [ebp+0x08], [ebp+0x0c]
         test eax, eax
-        jz .global
+        jz .not_bound
         mov eax, [eax+cons_cell.cdr]
-        jmp .ret
-    .global:
-        mov eax, [ebp+0x08]
-        mov eax, [eax+symbol.value]
+    .not_bound:
     .ret:
         mov esp, ebp
         pop ebp
@@ -1372,7 +1369,7 @@ get_symbol_value:
 ; In: 1) Symbol
 ;     2) Environment, NULL for global environment
 ; Out: pair from bindings list which contains symbol value in cdr
-;       NULL if symbol not boud or bound in global environment
+;       NULL if symbol not bound
 get_symbol_pair:
         push ebp
         mov ebp, esp
@@ -1407,7 +1404,7 @@ get_symbol_pair:
         xor eax, eax
         jmp .ret
     .global_env:
-        xor eax, eax
+        mov eax, [edi+symbol.binding]
     .ret:
         pop ebx
         pop edi
@@ -1544,7 +1541,7 @@ memory_create_symbol:
         lea eax, [edi+symbol.name_data]
         add eax, [ebp+0x0c]
         mov byte [eax], 0
-        mov dword [edi+symbol.value], 0
+        mov dword [edi+symbol.binding], 0
         mov eax, [symbols]
         mov dword [edi+symbol.next], eax
         mov [symbols], edi
@@ -2087,8 +2084,15 @@ define_continuation:
         mov [esi+environment.bindings], eax
         jmp .ret
     .global:
+        mov eax, [edi+symbol.binding]
+        test eax, eax
+        jnz .set
+        ccall memory_create_cons_cell
+        mov [edi+symbol.binding], eax
+        mov [eax+cons_cell.car], edi
+    .set:
         mov ecx, [eval_argument]
-        mov [edi+symbol.value], ecx
+        mov [eax+cons_cell.cdr], ecx
         jmp .ret
     .error:
         mov eax, environment_error
@@ -2134,7 +2138,7 @@ set_continuation:
         mov esi, [eval_environment]
         ccall get_symbol_pair, edi, esi
         test eax, eax
-        jz .global
+        jz .not_bound
         mov ecx, [eval_argument]
         mov [eax+cons_cell.cdr], ecx
     .ret:
@@ -2143,13 +2147,6 @@ set_continuation:
         pop edi
         pop esi
         jmp eval.next
-    .global:
-        mov eax, [edi+symbol.value]
-        test eax, eax
-        jz .not_bound
-        mov ecx, [eval_argument]
-        mov [edi+symbol.value], ecx
-        jmp .ret
     .not_bound:
         mov eax, set_not_bound
         pop edi
@@ -2255,6 +2252,8 @@ PLATFORM_DATA
         symbols         dd  0
         mem_freelist    dd  0
         mem_alloclist   dd  0
+
+builtin_symbols_bindings
 
 PLATFORM_BSS
 

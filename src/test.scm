@@ -1,11 +1,11 @@
-(= 4 5)
-(= 8 8)
-(= 3 (+ 2 1))
-(< 1 2)
-(< 2 2)
-(< 3 2)
-(> 1 2)
-(> 2 2)
-(> 3 2)
-(< (- 3) (- 2))
+(define a 5)
+a
+(define a 8)
+a
+(set! a 9)
+a
+(define define "hello")
+define
+(set! define "world")
+define
 
