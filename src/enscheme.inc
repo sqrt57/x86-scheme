@@ -26,6 +26,7 @@ object.tag.continuation = 0x08
 object.tag.native_procedure = 0x09
 object.tag.native_special = 0x0a
 object.tag.lambda = 0x0b
+object.tag.macro = 0x0c
 
 object.tag.fixed = 0x100
 
@@ -39,6 +40,7 @@ object_size.continuation = 0x18
 object_size.native_procedure = 0x08
 object_size.native_special = 0x08
 object_size.lambda = 0x10
+object_size.macro = 0x10
 
 cons_cell.car = 0x04
 cons_cell.cdr = 0x08
@@ -68,6 +70,10 @@ native_special.code = 0x04
 lambda.args = 0x04
 lambda.body = 0x08
 lambda.environment = 0x0c
+
+macro.args = 0x04
+macro.body = 0x08
+macro.environment = 0x0c
 
 memory_block_size = 1024*1024
 max_object_size = 4*1024
@@ -1040,8 +1046,7 @@ eval:
         and eax, object.tag.type_mask
         cmp eax, object.tag.empty_list
         je .operator_many_args_ok
-        write operator_many_args
-        xor eax, eax
+        mov eax, operator_many_args
         jmp .process_error
     .operator_many_args_ok:
         mov eax, [eval_argument]
@@ -1055,6 +1060,8 @@ eval:
         je .process_procedure
         cmp edx, object.tag.native_special
         je .process_special
+        cmp edx, object.tag.macro
+        je .process_macro
         write eval_apply_wrong_type
         xor eax, eax
         jmp .process_error
@@ -1064,6 +1071,12 @@ eval:
         mov esi, [edx+continuation.x]
         mov edi, empty_list
         jmp .eval_arg_or_apply
+    .process_macro:
+        mov ebx, eax
+        mov edx, [eval_current_continuation]
+        mov esi, empty_list
+        mov edi, [edx+continuation.x]
+        jmp .do_apply_macro
     .process_special:
         mov edi, eax
         mov ecx, [eval_current_continuation]
@@ -1163,6 +1176,7 @@ eval:
     .native_error:
         mov eax, ecx
         jmp .process_error
+
     .do_apply_lambda:
         ; EBX - procedure
         ; ESI - procedure formal parameters list
@@ -1194,6 +1208,43 @@ eval:
         jmp .next
     .lambda_args_count:
         mov eax, lambda_args_count_str
+        jmp .process_error
+
+    .do_apply_macro:
+        ; EBX - macro
+        ; ESI - macro formal parameters list
+        ; EDI - list of evaluated arguments
+        mov esi, [ebx+macro.args]
+        ccall memory_create_environment
+        mov edx, [eval_environment]
+        mov [eax+environment.parent], edx
+        mov [eval_environment], eax
+        ccall bind_parameters, esi, edi
+        test eax, eax
+        jz .macro_args_count
+        mov edx, [eval_environment]
+        mov [edx+environment.bindings], eax
+        ccall memory_create_continuation, .eval
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        ccall memory_create_continuation, .pop_environment
+        mov ecx, [eval_current_continuation]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        ccall memory_create_continuation, .eval_list
+        mov ecx, [eval_current_continuation]
+        mov [eax+continuation.next], ecx
+        mov ecx, [ebx+macro.body]
+        mov [eax+continuation.x], ecx
+        mov [eval_current_continuation], eax
+        xor eax, eax
+        mov [eval_argument], eax
+        mov dword [eval_args], empty_list
+        jmp .next
+    .macro_args_count:
+        mov eax, macro_args_count_str
         jmp .process_error
 
     .eval_list:
@@ -1585,6 +1636,17 @@ memory_create_lambda:
         mov [eax+lambda.args], edx
         mov [eax+lambda.body], edx
         mov [eax+lambda.environment], edx
+        ret
+
+; Allocates new macro structure
+; Out: Allocated scheme object
+memory_create_macro:
+        ccall memory_alloc, object_size.macro
+        mov dword [eax+object.tag], object.tag.macro
+        xor edx, edx
+        mov [eax+macro.args], edx
+        mov [eax+macro.body], edx
+        mov [eax+macro.environment], edx
         ret
 
 ; Allocates new environment
@@ -2009,6 +2071,35 @@ lambda:
         mov eax, lambda_body_syntax_error_str
         jmp eval.process_error
 
+scheme_macro:
+        mov eax, [eval_argument]
+        test eax, eax
+        jz .error_no_args
+        mov edx, [eval_args]
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne .body_syntax_error
+        mov edx, [eval_current_continuation]
+        mov edx, [edx+continuation.next]
+        mov [eval_current_continuation], edx
+        ccall memory_create_macro
+        mov edx, [eval_argument]
+        mov [eax+macro.args], edx
+        mov edx, [eval_args]
+        mov [eax+macro.body], edx
+        mov edx, [eval_environment]
+        mov [eax+macro.environment], edx
+        mov [eval_argument], eax
+        mov dword [eval_args], empty_list
+        jmp eval.next
+    .error_no_args:
+        mov eax, macro_no_args_str
+        jmp eval.process_error
+    .body_syntax_error:
+        mov eax, macro_body_syntax_error_str
+        jmp eval.process_error
+
 scheme_define:
         ensure_special_args 2, define_args_count, define_bad_syntax
         mov ecx, [eval_argument]
@@ -2153,6 +2244,19 @@ set_continuation:
         pop esi
         jmp eval.process_error
 
+scheme_eval:
+        ensure_special_args_simple 1
+        ccall memory_create_continuation, eval.eval
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        ccall memory_create_continuation, eval.eval
+        mov ecx, [eval_current_continuation]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        jmp eval.next
+
 PLATFORM_RDATA
 
 def_string newline, 0x0a
@@ -2191,8 +2295,6 @@ def_string eval_unknown, 'Eval error: cannot execute expression: '
 def_string unbound_symbol, 'Eval error: unbound symbol: '
 def_string eval_apply_wrong_type, 'Eval error: cannot apply object ', \
     'because of wrong type', 0x0a
-def_string operator_many_args, 'Eval error: cannot apply multiple values ', \
-    'as operator', 0x0a
 def_string operator_empty_arg, 'Eval error: no value returned for operator', \
     0x0a
 def_string operand_many_args, 'Eval error: cannot use multiple values ', \
@@ -2219,8 +2321,10 @@ def_proc '>', arithmetic_greater
 def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
+def_special 'macro', scheme_macro
 def_special 'define', scheme_define
 def_special 'set!', scheme_set
+def_special 'eval', scheme_eval
 def_symbol true, '#t', true
 def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
@@ -2233,10 +2337,14 @@ def_scheme_string eval_error_args_list, 'syntax error in argument list'
 def_scheme_string eval_many_args_str, 'cannot eval many args'
 def_scheme_string lambda_no_args_str, 'syntax error in lambda arguments list'
 def_scheme_string lambda_body_syntax_error_str, 'syntax error in lambda body'
+def_scheme_string macro_no_args_str, 'syntax error in macro arguments list'
+def_scheme_string macro_body_syntax_error_str, 'syntax error in macro body'
 def_scheme_string do_apply_unknown_type_str, 'cannot apply operator ', \
     'of unknown type'
 def_scheme_string lambda_args_count_str, 'wrong number of arguments to lambda'
 def_scheme_string lambda_body_syntax_str, 'lambda body must be proper list'
+def_scheme_string macro_args_count_str, 'wrong number of arguments to macro'
+def_scheme_string macro_body_syntax_str, 'macro body must be proper list'
 def_scheme_string define_args_count, 'wrong number of arguments to define'
 def_scheme_string define_bad_syntax, 'bad syntax of define'
 def_scheme_string set_args_count, 'wrong number of arguments to set'
@@ -2246,6 +2354,8 @@ def_scheme_string define_symbol_required, \
         'first argument to define must be a symbol'
 def_scheme_string environment_error, 'environment structure corrupted'
 def_scheme_string set_not_bound, 'set! error: symbol not bound'
+def_scheme_string operator_many_args, 'cannot apply multiple values ', \
+    'as operator'
 
 PLATFORM_DATA
 
