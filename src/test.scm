@@ -1,6 +1,6 @@
 (write (mem-allocated))
+(include "src/fib.scm")
 (write (mem-allocated))
-(write (+ 5 8))
+(write (fib 20))
 (write (mem-allocated))
-(write (mem-occupied))
 

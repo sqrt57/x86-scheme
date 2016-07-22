@@ -183,16 +183,7 @@ main:
         ret
 
     .exec_file:
-        push eax
-        push edx
-        ccall read_file, eax
-        test eax, eax
-        jz .file_error
-        add esp, 8
-        push eax
-        ccall exec_string, eax, edx
-        pop eax
-        ccall finish_file, eax
+        ccall exec_file, eax, edx
         jmp .next_arg
 
     .exec_arg:
@@ -217,15 +208,30 @@ main:
         mov eax, 1
         jmp .end
 
-    .file_error:
-        ccall write_string, file_error_str, file_error_len
-        pop edx
+exec_file:
+        push ebp
+        mov ebp, esp
+        ccall read_file, [ebp+0x08]
+        test eax, eax
+        jz .file_error
+        push eax
+        ccall exec_string, eax, edx
         pop eax
-        ccall write_string, eax, edx
+        ccall finish_file, eax
+        mov eax, 0
+        mov esp, ebp
+        pop ebp
+        ret
+
+    .file_error:
+        write file_error
+        ccall write_string, [ebp+0x08], [ebp+0x0c]
         write double_quote
         ccall write_newline
         mov eax, 1
-        jmp .end
+        mov esp, ebp
+        pop ebp
+        ret
 
 ; Executes scheme code
 ; In: 1) Address of string with scheme code
@@ -2005,6 +2011,22 @@ scheme_write:
         xor ecx, ecx
         ret
 
+scheme_include:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_string
+        lea ecx, [eax+string.data]
+        ccall exec_file, ecx, [eax+string.length]
+        xor eax, eax
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .not_string:
+        mov ecx, include_string_required
+        ret
+
 ; Native special forms have the following API.
 ; They are working inside stack frame of eval.
 ; They have access to the following variables (addressed base on EBP,
@@ -2347,6 +2369,7 @@ def_proc '>', arithmetic_greater
 def_proc 'mem-allocated', mem_allocated_proc
 def_proc 'mem-occupied', mem_occupied_proc
 def_proc 'write', scheme_write
+def_proc 'include', scheme_include
 def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
@@ -2385,6 +2408,7 @@ def_scheme_string environment_error, 'environment structure corrupted'
 def_scheme_string set_not_bound, 'set! error: symbol not bound'
 def_scheme_string operator_many_args, 'cannot apply multiple values ', \
     'as operator'
+def_scheme_string include_string_required, 'include requires string argument'
 
 PLATFORM_DATA
 
