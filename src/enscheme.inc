@@ -252,9 +252,6 @@ exec_string:
         ccall eval, eax
         test edx, edx
         jnz .error
-        test eax, eax
-        jz .next
-        ccall print, eax
         jmp .next
 
     .error:
@@ -2000,6 +1997,14 @@ mem_occupied_proc:
         xor ecx, ecx
         ret
 
+scheme_write:
+        ensure_procedure_args 1
+        ccall print, eax
+        xor eax, eax
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
 ; Native special forms have the following API.
 ; They are working inside stack frame of eval.
 ; They have access to the following variables (addressed base on EBP,
@@ -2341,6 +2346,7 @@ def_proc '<', arithmetic_less
 def_proc '>', arithmetic_greater
 def_proc 'mem-allocated', mem_allocated_proc
 def_proc 'mem-occupied', mem_occupied_proc
+def_proc 'write', scheme_write
 def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
