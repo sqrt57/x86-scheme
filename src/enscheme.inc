@@ -89,6 +89,21 @@ block.start = 0x0c
 ; 0x08 Address of free memory inside block
 ; 0x0c Start of data
 
+; Structure for scheme virtual machine state
+; Continuation to execute
+vm.current_continuation = 0x00
+; First argument value passed to current continuation
+vm.argument = 0x04
+; Rest arguments values passed to current continuation
+; First argument goes into vm.argument and rest into vm.args.
+vm.args = 0x08
+; Evaluation environment. If NULL then global environment.
+vm.environment = 0x0c
+; Here we maintain singly-linked list of all active VMs
+; Address of next vm state.
+vm.next = 0x10
+vm_size = 0x14
+
 PLATFORM_HEADER
 
 PLATFORM_CODE
@@ -905,20 +920,21 @@ streq:
 eval:
         push ebp
         mov ebp, esp
-        sub esp, 0x10
+        sub esp, vm_size
         push esi
         push edi
         push ebx
 
-        ; Continuation to execute
-        eval_current_continuation equ ebp-0x04
-        ; First argument value passed to current continuation
-        eval_argument equ ebp-0x08
-        ; Rest arguments values passed to current continuation
-        eval_args equ ebp-0x0c
-        ; First argument goes into eval_argument and rest into eval_args.
-        ; Evaluation environment. If NULL then global environment.
-        eval_environment equ ebp-0x10
+        eval_vm equ ebp-vm_size
+        eval_current_continuation equ eval_vm+vm.current_continuation
+        eval_argument equ eval_vm+vm.argument
+        eval_args equ eval_vm+vm.args
+        eval_environment equ eval_vm+vm.environment
+
+        mov eax, [vms]
+        mov [eval_vm+vm.next], eax
+        lea eax, [eval_vm]
+        mov [vms], eax
 
         xor eax, eax
         mov dword [eval_args], empty_list
@@ -978,6 +994,8 @@ eval:
         jmp .ret
 
     .ret:
+        mov esi, [eval_vm+vm.next]
+        mov [vms], esi
         pop ebx
         pop edi
         pop esi
@@ -2413,6 +2431,7 @@ def_scheme_string include_string_required, 'include requires string argument'
 PLATFORM_DATA
 
         symbols         dd  0
+        vms             dd  0
         mem_freelist    dd  0
         mem_alloclist   dd  0
         mem_allocated   dd  0
