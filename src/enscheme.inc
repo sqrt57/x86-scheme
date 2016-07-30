@@ -145,6 +145,9 @@ main:
         push ebx
         push esi
 
+
+        ccall memory_init
+
         xor ebx, ebx
         xor esi, esi
 
@@ -1485,6 +1488,31 @@ get_symbol_pair:
         pop ebp
         ret
 
+memory_init:
+        mov eax, [mem_alloclist]
+        test eax, eax
+        jnz .ret
+        call alloc_block
+    .ret:
+        ret
+
+alloc_block:
+        ccall malloc, memory_block_size
+        test eax, eax
+        jz .out_of_memory
+        add [mem_occupied], memory_block_size
+        mov dword [eax+block.size], memory_block_size
+        mov edx, [mem_alloclist]
+        mov [eax+block.next], edx
+        lea edx, [eax+block.start]
+        mov [eax+block.free], edx
+        mov [mem_alloclist], eax
+        ret
+
+    .out_of_memory:
+        write memory_error_oom
+        ccall exit, 1
+
 ; Allocates memory from heap
 ; In: 1) Size of memory block
 ; Out: Address of memory block
@@ -1500,15 +1528,13 @@ memory_alloc:
         ja .toolarge
 
         mov eax, [mem_alloclist]
-        test eax, eax
-        jnz .next
-
-        call .alloc_block
-
-    .next:
-        call .check_block
+        mov edx, [eax+block.free]
+        add edx, [ebp+0x08]
+        mov ecx, [eax+block.size]
+        add ecx, eax
+        cmp edx, ecx
         jb .doalloc
-        call .alloc_block
+        call alloc_block
 
     .doalloc:
         mov esi, [eax+block.free]
@@ -1529,34 +1555,9 @@ memory_alloc:
         pop ebp
         ret
 
-    .out_of_memory:
-        write memory_error_oom
-        ccall exit, 1
-
     .toolarge:
         write memory_error_large
         ccall exit, 1
-
-    .alloc_block:
-        ccall malloc, memory_block_size
-        test eax, eax
-        jz .out_of_memory
-        add [mem_occupied], memory_block_size
-        mov dword [eax+block.size], memory_block_size
-        mov edx, [mem_alloclist]
-        mov [eax+block.next], edx
-        lea edx, [eax+block.start]
-        mov [eax+block.free], edx
-        mov [mem_alloclist], eax
-        ret
-
-    .check_block:
-        mov edx, [eax+block.free]
-        add edx, [ebp+0x08]
-        mov ecx, [eax+block.size]
-        add ecx, eax
-        cmp edx, ecx
-        ret
 
 ; Allocates number on the heap
 ; In: 1) Value of number number
