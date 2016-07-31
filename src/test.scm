@@ -1,13 +1,17 @@
-(include "src/fib.scm")
-(define gc-stat (lambda ()
-                  (write "Memory before/after gc:")
-                  (write (mem-allocated))
-                  (gc)
-                  (write (mem-allocated))))
-(write (quote (fib 32)))
-(write (fib 32))
-(write "mem-gc-times")
-(write (mem-gc-times))
-(write "mem-max-allocated")
-(write (mem-max-allocated))
+; Delimited continuation
+(write
+  (call/cc (lambda (ex)
+             (+ ((lambda () 3))
+                ((lambda () (ex 1) 4))))))
+
+; Full continuation
+(define cont 0)
+
+(write (+ 1
+          (call/cc (lambda (ex)
+                     (set! cont ex)
+                     5))))
+
+(cont 10)
+(cont 15)
 

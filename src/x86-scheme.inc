@@ -1117,6 +1117,8 @@ eval:
         je .process_procedure
         cmp edx, object.tag.lambda
         je .process_procedure
+        cmp edx, object.tag.continuation
+        je .process_procedure
         cmp edx, object.tag.native_special
         je .process_special
         cmp edx, object.tag.macro
@@ -1168,8 +1170,6 @@ eval:
         ; ESI - (rest) unevaluated arguments list
         ; EDI - reversed list of evaluated arguments
     .eval_arg_or_apply:
-        test esi, esi
-        jz .do_apply
         mov ecx, [esi+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.empty_list
@@ -1209,6 +1209,8 @@ eval:
         je .native_procedure_args
         cmp ecx, object.tag.lambda
         je .do_apply_lambda
+        cmp ecx, object.tag.continuation
+        je .continuation_args
         mov eax, do_apply_unknown_type_str
         jmp .process_error
     .native_procedure_args:
@@ -1235,6 +1237,21 @@ eval:
     .native_error:
         mov eax, ecx
         jmp .process_error
+
+    .continuation_args:
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        je .continuation_many_args
+        xor eax, eax
+        mov edx, empty_list
+        jmp .do_apply_continuation
+    .continuation_many_args:
+        mov edx, [eax+cons_cell.cdr]
+        mov eax, [eax+cons_cell.car]
+    .do_apply_continuation:
+        mov [eval_current_continuation], ebx
+        jmp .next
 
     .do_apply_lambda:
         ; EBX - procedure
@@ -2779,6 +2796,31 @@ scheme_eval:
         mov [eval_current_continuation], eax
         jmp eval.next
 
+call_cc:
+        ensure_special_args_simple 1
+        ccall memory_create_continuation, call_cc_continuation
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        ccall memory_create_continuation, eval.eval
+        mov ecx, [eval_current_continuation]
+        mov [eax+continuation.next], ecx
+        mov [eval_current_continuation], eax
+        jmp eval.next
+
+call_cc_continuation:
+        ensure_special_args_simple 1
+        ccall memory_create_cons_cell
+        mov edx, [eval_current_continuation]
+        mov edx, [edx+continuation.next]
+        mov [eax+cons_cell.car], edx
+        mov dword [eax+cons_cell.cdr], empty_list
+        mov edi, eax
+        mov esi, empty_list
+        mov ebx, [eval_argument]
+        jmp eval.do_apply
+
 PLATFORM_RDATA
 
 def_string newline, 0x0a
@@ -2860,6 +2902,8 @@ def_special 'macro', scheme_macro
 def_special 'define', scheme_define
 def_special 'set!', scheme_set
 def_special 'eval', scheme_eval
+def_special 'call-with-current-continuation', call_cc
+def_special 'call/cc', call_cc
 def_symbol true, '#t', true
 def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
