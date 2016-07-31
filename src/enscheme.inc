@@ -130,6 +130,34 @@ length:
         mov eax, ecx
         ret
 
+; Writes unsigned number to standard output
+; In: 1) Undigned number
+write_unsigned:
+        push ebp
+        mov ebp, esp
+        .number_buf_end equ ebp
+        sub esp, 0x0c
+        push edi
+        lea edi, [.number_buf_end]
+        mov eax, [arg1]
+        mov ecx, 10
+    .number_next:
+        xor edx, edx
+        div ecx
+        add edx, '0'
+        dec edi
+        mov byte [edi], dl
+        test eax, eax
+        jnz .number_next
+
+        lea eax, [.number_buf_end]
+        sub eax, edi
+        ccall write_string, edi, eax
+        pop edi
+        mov esp, ebp
+        pop ebp
+        ret
+
 ; Cross-platform entry point
 ; In: 1) argc - count of command-line arguments
 ;     2) argv - array of argument adresses
@@ -958,6 +986,7 @@ eval:
         mov [eval_current_continuation], eax
 
     .next:
+        ccall memory_check_gc
         mov eax, [eval_current_continuation]
         jmp dword [eax+continuation.code]
 
@@ -1587,10 +1616,30 @@ memory_free_pointer:
         mov eax, [eax+block.free]
         ret
 
-; Garbage collect
+; Garbage collect if necessary
+memory_check_gc:
+        mov eax, [mem_allocated]
+        cmp eax, [mem_gc_threshold]
+        ja .gc
+        ret
+    .gc:
+        ccall memory_gc
+        mov eax, [mem_allocated]
+        shl eax, 2
+        mov [mem_gc_threshold], eax
+        ret
+
+; Forced garbage collect
 memory_gc:
         push ebp
         mov ebp, esp
+
+        inc [mem_gc_times]
+        mov eax, [mem_allocated]
+        cmp eax, [mem_max_allocated]
+        jbe .notmax
+        mov [mem_max_allocated], eax
+    .notmax:
 
         mov eax, [mem_alloclist]
         mov [gc_oldlist], eax
@@ -2402,6 +2451,24 @@ mem_occupied_proc:
         xor ecx, ecx
         ret
 
+mem_gc_times_proc:
+        ensure_procedure_args 0
+        ccall memory_create_number
+        mov ecx, [mem_gc_times]
+        mov [eax+number.value], ecx
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
+mem_max_allocated_proc:
+        ensure_procedure_args 0
+        ccall memory_create_number
+        mov ecx, [mem_max_allocated]
+        mov [eax+number.value], ecx
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
 scheme_write:
         ensure_procedure_args 1
         ccall print, eax
@@ -2781,6 +2848,8 @@ def_proc '<', arithmetic_less
 def_proc '>', arithmetic_greater
 def_proc 'mem-allocated', mem_allocated_proc
 def_proc 'mem-occupied', mem_occupied_proc
+def_proc 'mem-gc-times', mem_gc_times_proc
+def_proc 'mem-max-allocated', mem_max_allocated_proc
 def_proc 'write', scheme_write
 def_proc 'include', scheme_include
 def_proc 'gc', scheme_gc
@@ -2826,16 +2895,19 @@ def_scheme_string include_string_required, 'include requires string argument'
 
 PLATFORM_DATA
 
-        symbols         dd  0
-        vms             dd  0
-        mem_freelist    dd  0
-        mem_alloclist   dd  0
-        mem_cur_block   dd  0
-        gc_oldlist      dd  0
+        symbols                 dd  0
+        vms                     dd  0
+        mem_freelist            dd  0
+        mem_alloclist           dd  0
+        mem_cur_block           dd  0
+        gc_oldlist              dd  0
         gc_process_block        dd  0
         gc_process_pointer      dd  0
-        mem_allocated   dd  0
-        mem_occupied    dd  0
+        mem_allocated           dd  0
+        mem_occupied            dd  0
+        mem_gc_threshold        dd  0x1000
+        mem_gc_times            dd  0
+        mem_max_allocated       dd  0
 
 builtin_symbols_bindings
 
