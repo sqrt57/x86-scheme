@@ -34,6 +34,17 @@ macro ccall proc, [arg]
         end if
 }
 
+arg1 equ ebp+0x08
+arg2 equ ebp+0x0c
+arg3 equ ebp+0x10
+arg4 equ ebp+0x14
+arg5 equ ebp+0x18
+
+local1 equ ebp-0x04
+local2 equ ebp-0x08
+local3 equ ebp-0x0c
+local4 equ ebp-0x10
+
 macro stdcall proc, [arg]
 {
     common
