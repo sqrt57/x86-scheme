@@ -1,8 +1,8 @@
 ; vim: filetype=asm syntax=fasm
 
-; enscheme executable for Win32
+; x86-scheme executable for Win32
 ;
-; This file is part of enscheme project.
+; This file is part of x86-scheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
 macro PLATFORM_HEADER
@@ -501,7 +501,7 @@ section '.bss' data readable writeable
         win32_heap      rd  1
 }
 
-include 'enscheme.inc'
+include 'x86-scheme.inc'
 
 section '.idata' import data readable writable
 

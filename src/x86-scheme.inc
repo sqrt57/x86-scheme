@@ -2,7 +2,7 @@
 
 ; Scheme interpreter platform-independent core code
 ;
-; This file is part of enscheme project.
+; This file is part of x86-scheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
 builtin_symbols_prev = 0

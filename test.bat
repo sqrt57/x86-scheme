@@ -1,3 +1,3 @@
 call build.bat
-build\enscheme.exe src\test.scm %*
+build\x86-scheme.exe src\test.scm %*
 

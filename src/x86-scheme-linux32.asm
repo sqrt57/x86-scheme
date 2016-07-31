@@ -1,8 +1,8 @@
 ; vim: filetype=asm syntax=fasm
 
-; enscheme executable for 32-bit Linux
+; x86-scheme executable for 32-bit Linux
 ;
-; This file is part of enscheme project.
+; This file is part of x86-scheme project.
 ; Copyright (c) 2015-2016, Dmitry Grigoryev
 
 macro syscall_before
@@ -261,5 +261,5 @@ segment readable writeable
         cur_brk         rd  1
 }
 
-include 'enscheme.inc'
+include 'x86-scheme.inc'
 
