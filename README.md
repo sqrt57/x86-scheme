@@ -19,10 +19,10 @@ This is a simple implementation of Scheme programming language in x86 32-bit ass
 - Debugging facilities
 
 ## Features
-- Support for continuations (call-with-current-continuation is a goal)
-- Stop-and-copy exact garbage collector
-- Supports rebinding all symbols including builtins
-- Common Lisp like macros
+- Full call-with-current-continuation.
+- Stop-and-copy precise garbage collector.
+- Supports rebinding all symbols including builtins.
+- Common Lisp like macros.
 
 ## Building instructions
 x86-scheme is compiled with [flat assembler](http://flatassembler.net/). It can be compiled under Windows or GNU/Linux. All buuld scripts build two executables of x86-scheme: one for GNU/Linux and one for Windows.
