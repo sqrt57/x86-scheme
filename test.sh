@@ -1,4 +1,4 @@
 #!/bin/sh
 . ./build.sh
-build/x86-scheme src/test.scm "$@"
+build/x86-scheme run-tests.scm
 
