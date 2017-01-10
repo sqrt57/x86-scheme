@@ -19,13 +19,13 @@ This is a simple implementation of Scheme programming language in x86 32-bit ass
 - Debugging facilities
 
 ## Features
-- Full call-with-current-continuation.
-- Stop-and-copy precise garbage collector.
-- Supports rebinding all symbols including builtins.
-- Common Lisp like macros.
+- Full call-with-current-continuation
+- Stop-and-copy precise garbage collector
+- Supports rebinding all symbols including builtins
+- Common Lisp like macros
 
 ## Building instructions
-x86-scheme is compiled with [flat assembler](http://flatassembler.net/). It can be compiled under Windows or GNU/Linux. All buuld scripts build two executables of x86-scheme: one for GNU/Linux and one for Windows.
+x86-scheme is compiled with [flat assembler](http://flatassembler.net/). It can be compiled under Windows or GNU/Linux. All build scripts build two executables of x86-scheme: one for GNU/Linux and one for Windows.
 
 ### Linux
 Download flat assembler for linux and put it in the fasm-linux subdirectory of the project. Run build.sh to build executables or test.sh to build and run interpreter on test.scm. This can be done with the following shell commands:
