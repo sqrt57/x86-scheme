@@ -2398,6 +2398,14 @@ pairp:
         je return_true
         jmp return_false
 
+nullp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.empty_list
+        je return_true
+        jmp return_false
+
 scheme_eq:
         ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]
@@ -2965,6 +2973,7 @@ def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr
 def_proc 'pair?', pairp
+def_proc 'null?', nullp
 def_proc 'eq?', scheme_eq
 def_proc 'not', scheme_not
 def_proc '=', arithmetic_equals
