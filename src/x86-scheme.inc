@@ -131,7 +131,7 @@ length:
         ret
 
 ; Writes unsigned number to standard output
-; In: 1) Undigned number
+; In: 1) Unsigned number
 write_unsigned:
         push ebp
         mov ebp, esp
@@ -1679,6 +1679,7 @@ memory_gc:
         jmp .process
         
     .done:
+        ccall memory_collect_symbols
         ccall memory_old_to_free
 
         mov esp, ebp
@@ -1828,7 +1829,6 @@ gc_copy_roots:
 
     .done_builtins:
         mov esi, [symbols]
-        xor edi, edi
     .next_symbol:
         test esi, esi
         jz .done_symbols
@@ -1836,14 +1836,11 @@ gc_copy_roots:
         test eax, eax
         jz .goto_next_symbol
         ccall gc_get_live_object, esi
-        mov [eax+symbol.next], edi
-        mov edi, eax
     .goto_next_symbol:
         mov esi, [esi+symbol.next]
         jmp .next_symbol
 
     .done_symbols:
-        mov [symbols], edi
         pop edi
         pop esi
         mov esp, ebp
@@ -1965,6 +1962,42 @@ gc_get_live_object:
         pop ebp
         ret
 
+; Groups live symbols into a list
+memory_collect_symbols:
+        push ebp
+        mov ebp, esp
+        push esi
+        push edi
+
+        mov esi, [symbols]
+        mov edi, 0
+        jmp .start
+
+    .next:
+        mov esi, [esi+symbol.next]
+    .start:
+        test esi, esi
+        jz .done
+
+        mov ecx, [esi+object.tag]
+        test ecx, object.tag.fixed
+        jnz .next
+        test ecx, object.tag.gc_copied
+        jz .next
+
+        mov eax, [esi+object.gc_copy]
+        mov [eax+symbol.next], edi
+        mov edi, eax
+        jmp .next
+
+    .done:
+        mov [symbols], edi
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
+        ret
+
 ; Moves memory blocks from list GC_OLDLIST to MEM_FREELIST
 memory_old_to_free:
     .next:
@@ -1979,7 +2012,6 @@ memory_old_to_free:
         jmp .next
     .done:
         ret
-
 
 ; Allocates number on the heap
 ; In: 1) Value of number number
