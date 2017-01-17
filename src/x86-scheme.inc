@@ -2390,16 +2390,35 @@ pair_expected:
         mov ecx, pair_expected_str
         ret
 
+pairp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        je return_true
+        jmp return_false
+
 scheme_eq:
         ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]
         cmp eax, edx
-        je .equal
-        mov eax, false
-        jmp .ret
-    .equal:
+        je return_true
+        jmp return_false
+
+scheme_not:
+        ensure_procedure_args 1
+        cmp eax, false
+        je return_true
+        jmp return_false
+
+return_true:
         mov eax, true
-    .ret:
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
+return_false:
+        mov eax, false
         mov edx, empty_list
         xor ecx, ecx
         ret
@@ -2945,7 +2964,9 @@ def_proc 'list', create_list
 def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr
+def_proc 'pair?', pairp
 def_proc 'eq?', scheme_eq
+def_proc 'not', scheme_not
 def_proc '=', arithmetic_equals
 def_proc '<', arithmetic_less
 def_proc '>', arithmetic_greater

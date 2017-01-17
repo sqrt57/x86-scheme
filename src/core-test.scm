@@ -1,5 +1,5 @@
 (test-begin "core" 2)
-(test-assert "Addition" (= (+ 1 2) 3))
+(test-assert "addition" (= (+ 1 2) 3))
 (define tst (lambda ()
               (define x 1)
               (begin
@@ -7,4 +7,10 @@
                 (define x 3))
               (+ x y)))
 (test-assert "begin" (= (tst) 10))
+(test-assert "eq" (eq? (quote a) (quote a)))
+(test-eq "not-#t" (not #t) #f)
+(test-eq "not-#f" (not #f) #t)
+(test-eq "not-str" (not "abc") #f)
+(test-assert "pair?-pair" (pair? (quote (a . b))))
+(test-assert "pair?-empty-list" (not (pair? (quote ()))))
 (test-end "core")
