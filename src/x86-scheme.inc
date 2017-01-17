@@ -2853,6 +2853,35 @@ call_cc_continuation:
         mov ebx, [eval_argument]
         jmp eval.do_apply
 
+begin:
+        mov eax, [eval_argument]
+        test eax, eax
+        jz .zero_args
+
+        ccall memory_create_cons_cell
+        mov ecx, [eval_argument]
+        mov [eax+cons_cell.car], ecx
+        mov ecx, [eval_args]
+        mov [eax+cons_cell.cdr], ecx
+        push eax
+
+        ccall memory_create_continuation, eval.eval_list
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        popd [eax+continuation.x]
+        mov [eval_current_continuation], eax
+        xor eax, eax
+        mov [eval_argument], eax
+        mov dword [eval_args], empty_list
+        jmp eval.next
+
+    .zero_args:
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eval_current_continuation], ecx
+        jmp eval.next
+
 PLATFORM_RDATA
 
 def_string newline, 0x0a
@@ -2936,6 +2965,7 @@ def_special 'set!', scheme_set
 def_special 'eval', scheme_eval
 def_special 'call-with-current-continuation', call_cc
 def_special 'call/cc', call_cc
+def_special 'begin', begin
 def_symbol true, '#t', true
 def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'

@@ -1,0 +1,10 @@
+(test-begin "core" 2)
+(test-assert "Addition" (= (+ 1 2) 3))
+(define tst (lambda ()
+              (define x 1)
+              (begin
+                (define y 7)
+                (define x 3))
+              (+ x y)))
+(test-assert "begin" (= (tst) 10))
+(test-end "core")
