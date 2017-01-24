@@ -34,7 +34,7 @@ object.tag.gc_copied = 0x200
 
 object_size.empty_list = 0x04
 object_size.cons_cell = 0x0c
-object_size.symbol = 0x10
+object_size.symbol = 0x0c
 object_size.string = 0x08
 object_size.number = 0x08
 object_size.bytevector = 0x04
@@ -48,10 +48,10 @@ object_size.macro = 0x10
 cons_cell.car = 0x04
 cons_cell.cdr = 0x08
 
-symbol.binding = 0x04
+; We need symbol.next to not be overwritten by object.gc_copy
+symbol.name_length = 0x04
 symbol.next = 0x08
-symbol.name_length = 0x0c
-symbol.name_data = 0x10
+symbol.name_data = 0x0c
 
 string.length = 0x04
 string.data = 0x08
@@ -973,8 +973,8 @@ eval:
         lea eax, [eval_vm]
         mov [vms], eax
 
-        xor eax, eax
         mov dword [eval_args], empty_list
+        mov eax, [global_env]
         mov [eval_environment], eax
         mov eax, [ebp+0x08]
         mov [eval_argument], eax
@@ -1477,7 +1477,7 @@ bind_parameters:
 
 ; Gets value bound to symbol
 ; In: 1) Symbol
-;     2) Environment, NULL for global environment
+;     2) Environment
 ; Out: symbol value, NULL if not bound
 get_symbol_value:
         push ebp
@@ -1494,7 +1494,7 @@ get_symbol_value:
 
 ; Gets cons cell with symbol binding
 ; In: 1) Symbol
-;     2) Environment, NULL for global environment
+;     2) Environment
 ; Out: pair from bindings list which contains symbol value in cdr
 ;       NULL if symbol not bound
 get_symbol_pair:
@@ -1507,7 +1507,7 @@ get_symbol_pair:
         mov edi, [ebp+0x08]
     .next_env:
         test esi, esi
-        jz .global_env
+        jz .not_found
         mov edx, [esi+environment.bindings]
         mov esi, [esi+environment.parent]
     .next_binding:
@@ -1530,8 +1530,8 @@ get_symbol_pair:
         write environment_bindings
         xor eax, eax
         jmp .ret
-    .global_env:
-        mov eax, [edi+symbol.binding]
+    .not_found:
+        xor eax, eax
     .ret:
         pop ebx
         pop edi
@@ -1718,7 +1718,7 @@ gc_process:
         cmp ecx, object.tag.cons_cell
         je .cons_cell
         cmp ecx, object.tag.symbol
-        je .symbol
+        je .ret
         cmp ecx, object.tag.string
         je .ret
         cmp ecx, object.tag.number
@@ -1744,10 +1744,6 @@ gc_process:
         mov [esi+cons_cell.car], eax
         ccall gc_get_live_object, [esi+cons_cell.cdr]
         mov [esi+cons_cell.cdr], eax
-        jmp .ret
-    .symbol:
-        ccall gc_get_live_object, [esi+symbol.binding]
-        mov [esi+symbol.binding], eax
         jmp .ret
     .environment:
         ccall gc_get_live_object, [esi+environment.parent]
@@ -1797,7 +1793,10 @@ gc_copy_roots:
         push ebp
         mov ebp, esp
         push esi
-        push edi
+
+        ccall gc_get_live_object, [global_env]
+        mov [global_env], eax
+
         mov esi, [vms]
     .next_vm:
         test esi, esi
@@ -1814,34 +1813,6 @@ gc_copy_roots:
         jmp .next_vm
 
     .done_vms:
-        mov esi, builtin_symbols
-    .next_builtin:
-        test esi, esi
-        jz .done_builtins
-        mov edi, [esi+symbol.binding]
-        test edi, edi
-        jz .goto_next_builtin
-        ccall gc_get_live_object, [edi+cons_cell.cdr]
-        mov [edi+cons_cell.cdr], eax
-    .goto_next_builtin:
-        mov esi, [esi+symbol.next]
-        jmp .next_builtin
-
-    .done_builtins:
-        mov esi, [symbols]
-    .next_symbol:
-        test esi, esi
-        jz .done_symbols
-        mov eax, [esi+symbol.binding]
-        test eax, eax
-        jz .goto_next_symbol
-        ccall gc_get_live_object, esi
-    .goto_next_symbol:
-        mov esi, [esi+symbol.next]
-        jmp .next_symbol
-
-    .done_symbols:
-        pop edi
         pop esi
         mov esp, ebp
         pop ebp
@@ -2071,7 +2042,6 @@ memory_create_symbol:
         lea eax, [edi+symbol.name_data]
         add eax, [ebp+0x0c]
         mov byte [eax], 0
-        mov dword [edi+symbol.binding], 0
         mov eax, [symbols]
         mov dword [edi+symbol.next], eax
         mov [symbols], edi
@@ -2735,7 +2705,7 @@ define_continuation:
         mov edi, [edi+continuation.x]
         mov esi, [eval_environment]
         test esi, esi
-        jz .global
+        jz .error
         mov edx, [esi+environment.bindings]
     .next_binding:
         mov ecx, [edx+object.tag]
@@ -2771,17 +2741,6 @@ define_continuation:
         mov ecx, [esi+environment.bindings]
         mov [eax+cons_cell.cdr], ecx
         mov [esi+environment.bindings], eax
-        jmp .ret
-    .global:
-        mov eax, [edi+symbol.binding]
-        test eax, eax
-        jnz .set
-        ccall memory_create_cons_cell
-        mov [edi+symbol.binding], eax
-        mov [eax+cons_cell.car], edi
-    .set:
-        mov ecx, [eval_argument]
-        mov [eax+cons_cell.cdr], ecx
         jmp .ret
     .error:
         mov eax, environment_error
@@ -3044,6 +3003,12 @@ PLATFORM_DATA
         mem_gc_threshold        dd  0x1000
         mem_gc_times            dd  0
         mem_max_allocated       dd  0
+        global_env              dd  global_env_init
+
+global_env_init:
+        dd  object.tag.environment
+        dd  0
+        dd  binding_list
 
 builtin_symbols_bindings
 
