@@ -22,3 +22,6 @@
                   (cons (cdr head)
                         body)))
       (cons (quote builtin-define) (cons head body))))
+
+(include "lib/srfi-64.scm")
+

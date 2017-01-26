@@ -2368,6 +2368,38 @@ pairp:
         je return_true
         jmp return_false
 
+symbolp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.symbol
+        je return_true
+        jmp return_false
+
+procedurep:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.lambda
+        je return_true
+        jmp return_false
+
+numberp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        je return_true
+        jmp return_false
+
+stringp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        je return_true
+        jmp return_false
+
 nullp:
         ensure_procedure_args 1
         mov ecx, [eax+object.tag]
@@ -2932,6 +2964,10 @@ def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr
 def_proc 'pair?', pairp
+def_proc 'symbol?', symbolp
+def_proc 'procedure?', procedurep
+def_proc 'number?', numberp
+def_proc 'string?', stringp
 def_proc 'null?', nullp
 def_proc 'eq?', scheme_eq
 def_proc 'not', scheme_not
