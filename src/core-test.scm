@@ -44,4 +44,8 @@
 (test-assert "string=?-#f-1" (not (string=? "abc" "def")))
 (test-assert "string=?-#f-2" (not (string=? "abc" "abcd")))
 
+(test-eq "string->symbol" (quote abba) (string->symbol "abba"))
+(test-eq "string->symbol" (quote cons) (string->symbol "cons"))
+(test-assert "symbol->string" (string=? "abkm" (symbol->string (quote abkm))))
+
 (test-end "core")
