@@ -48,4 +48,7 @@
 (test-eq "string->symbol" (quote cons) (string->symbol "cons"))
 (test-assert "symbol->string" (string=? "abkm" (symbol->string (quote abkm))))
 
+(test-assert "string-append-2" (string=? "Hello world"
+                                         (string-append-2 "Hello " "world")))
+
 (test-end "core")

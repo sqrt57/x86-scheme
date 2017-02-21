@@ -2021,6 +2021,24 @@ memory_create_string:
         pop ebp
         ret
 
+; Allocates string without content on the heap
+; In: 1) Length of string
+; Out: Allocated scheme object
+; For convenience null byte is added at the end of string
+memory_create_string_0:
+        push ebp
+        mov ebp, esp
+        mov eax, [arg1]
+        add eax, object_size.string + 1
+        ccall memory_alloc, eax
+        mov dword [eax+object.tag], object.tag.string
+        mov edx, [arg1]
+        mov [eax+string.length], edx
+        mov byte [eax+string.data], 0
+        mov esp, ebp
+        pop ebp
+        ret
+
 ; Allocates symbol on the heap
 ; In: 1) Address of symbol name
 ;     2) Length of symbol name
@@ -2571,6 +2589,62 @@ symbol_to_string:
         mov ecx, not_a_symbol_error
         ret
 
+string_append_2:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        push esi
+        push edi
+        push ebx
+        mov esi, eax
+        mov ebx, edx
+        mov ecx, [eax+string.length]
+        add ecx, [edx+string.length]
+        ccall memory_create_string_0, ecx
+        mov edi, eax
+
+        ; Copy first string
+        pushd [esi+string.length]
+        lea ecx, [esi+string.data]
+        pushd ecx
+        lea ecx, [edi+string.data]
+        pushd ecx
+        call memcpy
+        add esp, 0xc
+
+        ; Copy second string
+        pushd [ebx+string.length]
+        lea ecx, [ebx+string.data]
+        pushd ecx
+        lea ecx, [edi+string.data]
+        add ecx, [esi+string.length]
+        pushd ecx
+        call memcpy
+        add esp, 0xc
+
+        ; Add null at the end
+        lea ecx, [edi+string.data]
+        add ecx, [esi+string.length]
+        add ecx, [ebx+string.length]
+        mov byte [ecx], 0
+
+        mov eax, edi
+        add esp, 0xc
+    .ret:
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .not_a_string:
+        mov ecx, not_a_string_error
+        ret
+
 mem_allocated_proc:
         ensure_procedure_args 0
         ccall memory_create_number
@@ -3037,6 +3111,7 @@ def_proc '>', arithmetic_greater
 def_proc 'string=?', string_eq
 def_proc 'string->symbol', string_to_symbol
 def_proc 'symbol->string', symbol_to_string
+def_proc 'string-append-2', string_append_2
 def_proc 'mem-allocated', mem_allocated_proc
 def_proc 'mem-occupied', mem_occupied_proc
 def_proc 'mem-gc-times', mem_gc_times_proc
