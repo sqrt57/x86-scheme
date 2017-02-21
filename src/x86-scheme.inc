@@ -2511,6 +2511,36 @@ arithmetic_greater:
         mov ecx, arithmetic_error
         ret
 
+string_eq:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        push ebx
+        lea ecx, [eax+string.data]
+        lea ebx, [edx+string.data]
+        ccall streq, ecx, [eax+string.length], ebx, [edx+string.length]
+        pop ebx
+        test eax, eax
+        jnz .true
+        mov eax, false
+        jmp .ret
+    .true:
+        mov eax, true
+    .ret:
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .not_a_string:
+        mov ecx, not_a_string_error
+        ret
+
 mem_allocated_proc:
         ensure_procedure_args 0
         ccall memory_create_number
@@ -2974,6 +3004,7 @@ def_proc 'not', scheme_not
 def_proc '=', arithmetic_equals
 def_proc '<', arithmetic_less
 def_proc '>', arithmetic_greater
+def_proc 'string=?', string_eq
 def_proc 'mem-allocated', mem_allocated_proc
 def_proc 'mem-occupied', mem_occupied_proc
 def_proc 'mem-gc-times', mem_gc_times_proc
@@ -2994,6 +3025,7 @@ def_special 'begin', begin
 def_symbol true, '#t', true
 def_symbol false, '#f', false
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
+def_scheme_string not_a_string_error, 'non-string in string operation'
 def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
 def_scheme_string special_bad_syntax, 'syntax error in special form call'

@@ -40,4 +40,8 @@
 (test-assert "and2-#t-#t" (and2 #t #t))
 (test-assert "and2-#f-#f" (not (and2 #f #f)))
 
+(test-assert "string=?-#t" (string=? "abc" "abc"))
+(test-assert "string=?-#f-1" (not (string=? "abc" "def")))
+(test-assert "string=?-#f-2" (not (string=? "abc" "abcd")))
+
 (test-end "core")
