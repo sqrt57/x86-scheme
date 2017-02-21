@@ -50,5 +50,9 @@
 
 (test-assert "string-append-2" (string=? "Hello world"
                                          (string-append-2 "Hello " "world")))
+(test-assert "string-append"
+             (string=? "Hello, world"
+                       (string-append "Hello" ", " "world")))
+(test-assert "string-append-0" (string=? "" (string-append)))
 
 (test-end "core")

@@ -23,5 +23,8 @@
                         body)))
       (cons (quote builtin-define) (cons head body))))
 
+(define (string-append . strings) (reduce-left string-append-2 "" strings))
+
+(include "lib/srfi-1.scm")
 (include "lib/srfi-64.scm")
 
