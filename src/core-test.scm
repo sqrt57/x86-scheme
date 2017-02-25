@@ -55,4 +55,7 @@
                        (string-append "Hello" ", " "world")))
 (test-assert "string-append-0" (string=? "" (string-append)))
 
+(test-assert "memq-#t" (memq (quote a) (quote (c b a x))))
+(test-assert "memq-#f" (not (memq (quote d) (quote (c b a x)))))
+
 (test-end "core")

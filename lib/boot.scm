@@ -25,6 +25,6 @@
 
 (define (string-append . strings) (reduce-left string-append-2 "" strings))
 
+(include "lib/core.scm")
 (include "lib/srfi-1.scm")
 (include "lib/srfi-64.scm")
-
