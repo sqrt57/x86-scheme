@@ -58,4 +58,9 @@
 (test-assert "memq-#t" (memq (quote a) (quote (c b a x))))
 (test-assert "memq-#f" (not (memq (quote d) (quote (c b a x)))))
 
+(test-assert "has-feature?-#t" (has-feature? (quote x86-scheme)))
+(test-assert "has-feature?-#f" (not (has-feature? (quote test-feature))))
+(add-feature! (quote test-feature))
+(test-assert "add-feature!" (has-feature? (quote test-feature)))
+
 (test-end "core")
