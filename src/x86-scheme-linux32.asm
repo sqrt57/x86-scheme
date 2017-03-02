@@ -261,5 +261,6 @@ segment readable writeable
         cur_brk         rd  1
 }
 
-include 'x86-scheme.inc'
+current_platform = symbol_win32
 
+include 'x86-scheme.inc'

@@ -501,6 +501,8 @@ section '.bss' data readable writeable
         win32_heap      rd  1
 }
 
+current_platform = symbol_win32
+
 include 'x86-scheme.inc'
 
 section '.idata' import data readable writable
@@ -575,4 +577,3 @@ shell32_iat:
         GetLastError_name db 0, 0, "GetLastError", 0
         align 2
         ReadFile_name db 0, 0, "ReadFile", 0
-

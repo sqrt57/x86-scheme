@@ -1677,7 +1677,7 @@ memory_gc:
         jz .done
         ccall gc_process
         jmp .process
-        
+
     .done:
         ccall memory_collect_symbols
         ccall memory_old_to_free
@@ -3131,6 +3131,9 @@ def_special 'call/cc', call_cc
 def_special 'begin', begin
 def_symbol true, '#t', true
 def_symbol false, '#f', false
+def_symbol_unbound symbol_linux, 'linux32'
+def_symbol_unbound symbol_win32, 'win32'
+def_symbol symbol_platform, '*platform*', current_platform
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
 def_scheme_string not_a_string_error, 'non-string in string operation'
 def_scheme_string not_a_symbol_error, 'non-symbol in symbol operation'
@@ -3191,4 +3194,3 @@ builtin_symbols_bindings
 PLATFORM_BSS
 
 builtin_symbols = builtin_symbols_prev
-

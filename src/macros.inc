@@ -30,6 +30,21 @@ builtin_symbols_prev = 0
 
 builtin_symbols_list equ
 
+macro def_symbol_unbound name, str
+{
+local code_start, name_start, name_length
+    name:
+        dd  object.tag.symbol or object.tag.fixed
+        dd  name_length
+        dd  builtin_symbols_prev
+    name_start:
+        db  str
+        name_length = $-name_start
+        db  0
+        align0 4
+builtin_symbols_prev = name
+}
+
 macro def_symbol name, str, value
 {
 local code_start, name_start, name_length
@@ -194,4 +209,3 @@ end repeat
     ok:
 end if
 }
-
