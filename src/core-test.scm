@@ -63,4 +63,9 @@
 (add-feature! (quote test-feature))
 (test-assert "add-feature!" (has-feature? (quote test-feature)))
 
+(test-eq "assq-#t"
+         (cadr (assq (quote h) (quote ((a b) (h i) (e f)))))
+         (quote i))
+(test-assert "assq-#f" (not (assq (quote h) (quote ((a b) (c d))))))
+
 (test-end "core")

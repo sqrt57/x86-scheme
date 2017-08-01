@@ -25,6 +25,11 @@
                         body)))
       (cons (quote builtin-define) (cons head body))))
 
+(define (caar x) (car (car x)))
+(define (cadr x) (car (cdr x)))
+(define (cdar x) (cdr (car x)))
+(define (cddr x) (cdr (cdr x)))
+
 (define (string-append . strings) (reduce-left string-append-2 "" strings))
 (define (memq obj list)
   (if (pair? list)
@@ -42,3 +47,10 @@
 
 (define (has-feature? feature)
   (if (memq feature *features*) #t #f))
+
+(define (assq elem list)
+  (if (pair? list)
+      (if (eq? (caar list) elem)
+          (car list)
+          (assq elem (cdr list)))
+      #f))
