@@ -102,7 +102,7 @@ vm.argument = 0x04
 ; Rest arguments values passed to current continuation
 ; First argument goes into vm.argument and rest into vm.args.
 vm.args = 0x08
-; Evaluation environment. If NULL then global environment.
+; Evaluation environment. global_env is the global environment.
 vm.environment = 0x0c
 ; Here we maintain singly-linked list of all active VMs
 ; Address of next vm state.
@@ -2750,7 +2750,7 @@ scheme_gc:
 ;               ".apply_procedure_or_special" continuation.
 ;               Code must at least update current continuation to
 ;               NEXT field of current continuation
-; [eval_environment] - current environment, NULL if global environment
+; [eval_environment] - current environment, global_env is the global environment
 ;
 ; Code may read these variables and update their values.
 ; When finished, code must jump to "eval.next"
