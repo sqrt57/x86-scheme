@@ -68,4 +68,14 @@
          (quote i))
 (test-assert "assq-#f" (not (assq (quote h) (quote ((a b) (c d))))))
 
+(test-assert "map" (= (cadr (map (lambda (x) (+ 10 x))
+                            (quote (1 2))))
+                   12))
+(define l (quote ((a (b)) (c d))))
+(define lc (alist-copy l))
+(test-assert "alist-copy-new1" (not (eq? l lc)))
+(test-assert "alist-copy-new2" (not (eq? (car l) (car lc))))
+(test-eq "alist-same-key" (caar l) (caar lc))
+(test-eq "alist-same-value" (cadar l) (cadar lc))
+
 (test-end "core")

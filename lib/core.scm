@@ -30,6 +30,15 @@
 (define (cdar x) (cdr (car x)))
 (define (cddr x) (cdr (cdr x)))
 
+(define (caaar x) (car (car (car x))))
+(define (caadr x) (car (car (cdr x))))
+(define (cadar x) (car (cdr (car x))))
+(define (caddr x) (car (cdr (cdr x))))
+(define (cdaar x) (cdr (car (car x))))
+(define (cdadr x) (cdr (car (cdr x))))
+(define (cddar x) (cdr (cdr (car x))))
+(define (cdddr x) (cdr (cdr (cdr x))))
+
 (define (string-append . strings) (reduce-left string-append-2 "" strings))
 (define (memq obj list)
   (if (pair? list)
@@ -48,9 +57,17 @@
 (define (has-feature? feature)
   (if (memq feature *features*) #t #f))
 
+(define (map f list)
+  (if (pair? list)
+      (cons (f (car list)) (map f (cdr list)))
+      (quote ())))
+
 (define (assq elem list)
   (if (pair? list)
       (if (eq? (caar list) elem)
           (car list)
           (assq elem (cdr list)))
       #f))
+
+(define (alist-copy l)
+  (map (lambda (el) (cons (car el) (cdr el))) l))
