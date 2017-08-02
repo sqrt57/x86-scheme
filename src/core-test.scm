@@ -78,4 +78,10 @@
 (test-eq "alist-same-key" (caar l) (caar lc))
 (test-eq "alist-same-value" (cadar l) (cadar lc))
 
+(define pair (quote (a . b)))
+(set-car! pair (quote c))
+(test-eq "set-car!" (car pair) (quote c))
+(set-cdr! pair (quote d))
+(test-eq "set-cdr!" (cdr pair) (quote d))
+
 (test-end "core")

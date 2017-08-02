@@ -81,19 +81,18 @@ macro.args = 0x04
 macro.body = 0x08
 macro.environment = 0x0c
 
-memory_block_size = 1024*1024
-max_object_size = 4*1024
-block.size = 0x00
-block.next = 0x04
-block.free = 0x08
-block.start = 0x0c
-
 ; Memory is allocated in blocks of size memory_block_size
 ; Block structure:
 ; 0x00 Block size
 ; 0x04 Next block address
 ; 0x08 Address of free memory inside block
 ; 0x0c Start of data
+memory_block_size = 1024*1024
+max_object_size = 4*1024
+block.size = 0x00
+block.next = 0x04
+block.free = 0x08
+block.start = 0x0c
 
 ; Structure for scheme virtual machine state
 ; Continuation to execute
@@ -108,6 +107,7 @@ vm.environment = 0x0c
 ; Here we maintain singly-linked list of all active VMs
 ; Address of next vm state.
 vm.next = 0x10
+
 vm_size = 0x14
 
 PLATFORM_HEADER
@@ -2374,6 +2374,32 @@ cdr:
         xor ecx, ecx
         ret
 
+set_car:
+        ensure_procedure_args 2
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne pair_expected
+        mov edx, [edx+cons_cell.car]
+        mov [eax+cons_cell.car], edx
+        mov edx, empty_list
+        xor eax, eax
+        mov ecx, eax
+        ret
+
+set_cdr:
+        ensure_procedure_args 2
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.cons_cell
+        jne pair_expected
+        mov edx, [edx+cons_cell.car]
+        mov [eax+cons_cell.cdr], edx
+        mov edx, empty_list
+        xor eax, eax
+        mov ecx, eax
+        ret
+
 pair_expected:
         mov ecx, pair_expected_str
         ret
@@ -3097,6 +3123,8 @@ def_proc 'list', create_list
 def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr
+def_proc 'set-car!', set_car
+def_proc 'set-cdr!', set_cdr
 def_proc 'pair?', pairp
 def_proc 'symbol?', symbolp
 def_proc 'procedure?', procedurep
