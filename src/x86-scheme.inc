@@ -2123,6 +2123,7 @@ memory_create_environment:
         mov dword [eax+object.tag], object.tag.environment
         xor edx, edx
         mov [eax+environment.parent], edx
+        mov edx, empty_list
         mov [eax+environment.bindings], edx
         ret
 
@@ -2671,6 +2672,20 @@ string_append_2:
         mov ecx, not_a_string_error
         ret
 
+global_environment:
+        ensure_procedure_args 0
+        mov edx, empty_list
+        mov eax, global_env
+        xor ecx, ecx
+        ret
+
+create_environment:
+        ensure_procedure_args 0
+        ccall memory_create_environment
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
 mem_allocated_proc:
         ensure_procedure_args 0
         ccall memory_create_number
@@ -3140,6 +3155,8 @@ def_proc 'string=?', string_eq
 def_proc 'string->symbol', string_to_symbol
 def_proc 'symbol->string', symbol_to_string
 def_proc 'string-append-2', string_append_2
+def_proc 'global-environment', global_environment
+def_proc 'create-environment', create_environment
 def_proc 'mem-allocated', mem_allocated_proc
 def_proc 'mem-occupied', mem_occupied_proc
 def_proc 'mem-gc-times', mem_gc_times_proc
