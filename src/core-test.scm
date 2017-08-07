@@ -85,3 +85,14 @@
 (test-eq "set-cdr!" (cdr pair) (quote d))
 
 (test-end "core")
+
+(test-begin "write" 0)
+
+(write (create-environment))
+(write (lambda () 1))
+(write (call/cc (lambda (x) (x x))))
+(write +)
+(write define)
+(write if)
+
+(test-end "write")

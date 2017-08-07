@@ -769,6 +769,20 @@ print:
         je .empty_list
         cmp edx, object.tag.cons_cell
         je .list
+        cmp edx, object.tag.bytevector
+        je .bytevector
+        cmp edx, object.tag.environment
+        je .environment
+        cmp edx, object.tag.continuation
+        je .continuation
+        cmp edx, object.tag.native_procedure
+        je .native_procedure
+        cmp edx, object.tag.native_special
+        je .native_special
+        cmp edx, object.tag.lambda
+        je .lambda
+        cmp edx, object.tag.macro
+        je .macro
         write core_unknown_object
         ret
 
@@ -826,6 +840,35 @@ print:
         mov ecx, [eax+symbol.name_length]
         lea edx, [eax+symbol.name_data]
         ccall write_string, edx, ecx
+        ret
+
+
+    .bytevector:
+        write bytevector_repr
+        ret
+
+    .environment:
+        write environment_repr
+        ret
+
+    .continuation:
+        write continuation_repr
+        ret
+
+    .native_procedure:
+        write native_procedure_repr
+        ret
+
+    .native_special:
+        write native_special_repr
+        ret
+
+    .lambda:
+        write lambda_repr
+        ret
+
+    .macro:
+        write macro_repr
         ret
 
     .empty_list:
@@ -3089,6 +3132,13 @@ def_string rightbr_error, 'Parse error: closing bracket without matching ', \
 def_string leftbr_error, 'Parse error: bracket open, but not closed', 0x0a
 def_string string_error, 'Parse error: unfinished string literal', 0x0a
 def_string empty_list, '()'
+def_string bytevector_repr, ''
+def_string environment_repr, '#<Environment>'
+def_string continuation_repr, '#<Procedure:continuation>'
+def_string native_procedure_repr, '#<Procedure:native>'
+def_string native_special_repr, '#<Special:native>'
+def_string lambda_repr, '#<Procedure:lambda>'
+def_string macro_repr, '#<Special:macro>'
 def_string leftbr, '('
 def_string rightbr, ')'
 def_string space, ' '
