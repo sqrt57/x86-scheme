@@ -1549,8 +1549,10 @@ get_symbol_pair:
         mov esi, [ebp+0x0c]
         mov edi, [ebp+0x08]
     .next_env:
-        test esi, esi
-        jz .not_found
+        mov ecx, [esi+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.environment
+        jne .not_found
         mov edx, [esi+environment.bindings]
         mov esi, [esi+environment.parent]
     .next_binding:
@@ -2164,10 +2166,8 @@ memory_create_macro:
 memory_create_environment:
         ccall memory_alloc, object_size.environment
         mov dword [eax+object.tag], object.tag.environment
-        xor edx, edx
-        mov [eax+environment.parent], edx
-        mov edx, empty_list
-        mov [eax+environment.bindings], edx
+        mov dword [eax+environment.parent], false
+        mov dword [eax+environment.bindings], empty_list
         ret
 
 ; Copy block of memory
@@ -3281,7 +3281,7 @@ PLATFORM_DATA
 
 global_env_init:
         dd  object.tag.environment
-        dd  0
+        dd  false
         dd  binding_list
 
 builtin_symbols_bindings
