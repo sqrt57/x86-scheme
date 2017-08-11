@@ -93,6 +93,8 @@
 (set-environment-bindings! env blist)
 (test-eq "set-env-bindings" (environment-bindings env) blist)
 
+(test-eq "eval" (eval (quote (car (quote (a . b))))) (quote a))
+
 (test-end "core")
 
 (test-begin "write" 0)
