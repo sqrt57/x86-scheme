@@ -2729,6 +2729,58 @@ create_environment:
         xor ecx, ecx
         ret
 
+environment_parent:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.environment
+        jne pair_expected
+        mov eax, [eax+environment.parent]
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
+environment_bindings:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.environment
+        jne environment_expected
+        mov eax, [eax+environment.bindings]
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
+set_environment_parent:
+        ensure_procedure_args 2
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.environment
+        jne pair_expected
+        mov edx, [edx+cons_cell.car]
+        mov [eax+environment.parent], edx
+        mov edx, empty_list
+        xor eax, eax
+        mov ecx, eax
+        ret
+
+set_environment_bindings:
+        ensure_procedure_args 2
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.environment
+        jne pair_expected
+        mov edx, [edx+cons_cell.car]
+        mov [eax+environment.bindings], edx
+        mov edx, empty_list
+        xor eax, eax
+        mov ecx, eax
+        ret
+
+environment_expected:
+        mov ecx, environment_expected_str
+        ret
+
 mem_allocated_proc:
         ensure_procedure_args 0
         ccall memory_create_number
@@ -3207,6 +3259,10 @@ def_proc 'symbol->string', symbol_to_string
 def_proc 'string-append-2', string_append_2
 def_proc 'global-environment', global_environment
 def_proc 'create-environment', create_environment
+def_proc 'environment-parent', environment_parent
+def_proc 'environment-bindings', environment_bindings
+def_proc 'set-environment-parent!', set_environment_parent
+def_proc 'set-environment-bindings!', set_environment_bindings
 def_proc 'mem-allocated', mem_allocated_proc
 def_proc 'mem-occupied', mem_occupied_proc
 def_proc 'mem-gc-times', mem_gc_times_proc
@@ -3236,6 +3292,7 @@ def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
 def_scheme_string special_bad_syntax, 'syntax error in special form call'
 def_scheme_string pair_expected_str, 'pair expected'
+def_scheme_string environment_expected_str, 'environment expected'
 def_scheme_string quote_args_str, 'wrong number of  arguments to quote'
 def_scheme_string eval_error_args_list, 'syntax error in argument list'
 def_scheme_string eval_many_args_str, 'cannot eval many args'

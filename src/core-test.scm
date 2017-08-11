@@ -84,6 +84,15 @@
 (set-cdr! pair (quote d))
 (test-eq "set-cdr!" (cdr pair) (quote d))
 
+(define env (create-environment))
+(test-eq "new-env-parent" (environment-parent env) #f)
+(test-eq "new-env-bindings" (environment-bindings env) (quote ()))
+(set-environment-parent! env (global-environment))
+(test-eq "set-env-parent" (environment-parent env) (global-environment))
+(define blist (quote ((a 1) (b 2))))
+(set-environment-bindings! env blist)
+(test-eq "set-env-bindings" (environment-bindings env) blist)
+
 (test-end "core")
 
 (test-begin "write" 0)
