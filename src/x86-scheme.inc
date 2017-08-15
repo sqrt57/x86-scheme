@@ -2718,7 +2718,7 @@ string_append_2:
 global_environment:
         ensure_procedure_args 0
         mov edx, empty_list
-        mov eax, global_env
+        mov eax, [global_env]
         xor ecx, ecx
         ret
 
