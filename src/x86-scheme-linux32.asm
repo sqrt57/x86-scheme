@@ -1,9 +1,7 @@
-; vim: filetype=asm syntax=fasm
-
 ; x86-scheme executable for 32-bit Linux
 ;
 ; This file is part of x86-scheme project.
-; Copyright (c) 2015-2016, Dmitry Grigoryev
+; Copyright (c) 2015-2017, Dmitry Grigoryev
 
 macro syscall_before
 {
@@ -46,6 +44,22 @@ platform_start:
         mov ebx, eax
         mov eax, 1
         int 0x80
+
+; Calculates length of 8-bit string
+; In: 1) address of null-terminated UTF-8 string
+; Out: length of the string
+; Preserves all other registers
+length:
+        mov eax, [esp+4]
+        mov ecx, 0
+        jmp .start
+    .next:
+        inc ecx
+    .start:
+        cmp byte [eax+ecx], 0
+        jnz .next
+        mov eax, ecx
+        ret
 
 ; Initializes platform-specific linux variables
 linux32_init:

@@ -6,6 +6,7 @@
 + Environments manipulation
 - Type checkers for environments, etc
 - Eval with environment parameter
+- Apply
 - Add character type
 - Paths routines
 - Directory routines

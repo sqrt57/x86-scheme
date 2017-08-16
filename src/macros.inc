@@ -1,9 +1,7 @@
-; vim: filetype=asm syntax=fasm
-
 ; Miscellaneous macros
 ;
 ; This file is part of enscheme project.
-; Copyright (c) 2015-2016, Dmitry Grigoryev
+; Copyright (c) 2015-2017, Dmitry Grigoryev
 
 macro def_string name, [s]
 {

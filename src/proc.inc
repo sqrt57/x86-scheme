@@ -1,5 +1,3 @@
-; vim: filetype=asm syntax=fasm
-
 ; Macros for calling procedures
 ;
 ; This file is part of enscheme project.
@@ -55,5 +53,3 @@ macro stdcall proc, [arg]
     end if
     call proc
 }
-
-

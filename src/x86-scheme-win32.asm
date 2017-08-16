@@ -1,9 +1,7 @@
-; vim: filetype=asm syntax=fasm
-
 ; x86-scheme executable for Win32
 ;
 ; This file is part of x86-scheme project.
-; Copyright (c) 2015-2016, Dmitry Grigoryev
+; Copyright (c) 2015-2017, Dmitry Grigoryev
 
 macro PLATFORM_HEADER
 {
