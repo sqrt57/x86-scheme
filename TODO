@@ -1,0 +1,20 @@
++ Set-like list manipulation
++ Features list
++ OS feature
++ Printing environments
++ Associative list manipulation
++ Environments manipulation
+- Type checkers for environments, etc
+- Eval with environment parameter
+- Add character type
+- Paths routines
+- Directory routines
+- Require/provide
+- File reading
+- Replaceable reader
+- Virtual tables (size, print, execute, garbage collect)
+- Add user-defined types
+- File writing
+- Replaceable top-level interpreter
+- New interpreter
+- syntax-rules
