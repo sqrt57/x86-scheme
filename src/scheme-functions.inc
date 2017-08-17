@@ -234,6 +234,8 @@ procedurep:
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.lambda
         je return_true
+        cmp ecx, object.tag.native_procedure
+        je return_true
         jmp return_false
 
 numberp:

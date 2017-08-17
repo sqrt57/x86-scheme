@@ -103,6 +103,9 @@
 (test-eq "list" (cadr (list (quote a) (quote b) (quote c))) (quote b))
 (test-eq "list-empty" (list) (quote ()))
 
+(test-assert "procedure?-lambda" (procedure? tst))
+(test-assert "procedure?-native" (procedure? car))
+
 (test-end "core")
 
 (test-begin "write" 0)
