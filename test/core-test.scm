@@ -1,3 +1,8 @@
+; Core scheme functionality tests
+;
+; This file is part of x86-scheme project.
+; Copyright (c) 2015-2017, Dmitry Grigoryev
+
 (test-begin "core" 2)
 
 (test-assert "addition" (= (+ 1 2) 3))

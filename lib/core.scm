@@ -1,4 +1,7 @@
 ; Core scheme functionality
+;
+; This file is part of x86-scheme project.
+; Copyright (c) 2015-2017, Dmitry Grigoryev
 
 (define builtin-define define)
 
