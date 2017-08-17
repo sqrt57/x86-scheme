@@ -1,2 +1,2 @@
 (include "lib/boot.scm")
-(include "src/core-test.scm")
+(include "test/core-test.scm")
