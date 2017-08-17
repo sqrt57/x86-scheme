@@ -5,6 +5,8 @@
 
 (define builtin-define define)
 
+(define list (lambda elems elems))
+
 (define defmacro
   (macro (head . body)
     (list (quote builtin-define)

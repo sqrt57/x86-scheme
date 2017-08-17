@@ -10,7 +10,6 @@ empty_list dd object.tag.empty_list or object.tag.fixed
 def_proc '+', scheme_add
 def_proc '-', scheme_sub
 def_proc 'reverse', reverse
-def_proc 'list', create_list
 def_proc 'cons', cons
 def_proc 'car', car
 def_proc 'cdr', cdr

@@ -146,29 +146,6 @@ scheme_sub:
         mov edx, empty_list
         ret
 
-create_list:
-        test eax, eax
-        jz .empty
-        test edx, edx
-        jnz .next
-        mov edx, empty_list
-    .next:
-        push eax
-        push edx
-        ccall memory_create_cons_cell
-        pop edx
-        pop ecx
-        mov [eax+cons_cell.car], ecx
-        mov [eax+cons_cell.cdr], edx
-        mov edx, empty_list
-        xor ecx, ecx
-        ret
-    .empty:
-        mov eax, empty_list
-        mov edx, empty_list
-        xor ecx, ecx
-        ret
-
 cons:
         ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]

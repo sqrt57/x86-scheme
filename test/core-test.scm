@@ -100,6 +100,9 @@
 
 (test-eq "eval" (eval (quote (car (quote (a . b))))) (quote a))
 
+(test-eq "list" (cadr (list (quote a) (quote b) (quote c))) (quote b))
+(test-eq "list-empty" (list) (quote ()))
+
 (test-end "core")
 
 (test-begin "write" 0)
