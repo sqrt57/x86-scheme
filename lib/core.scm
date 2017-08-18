@@ -79,3 +79,7 @@
 
 (define (alist-copy l)
   (map (lambda (el) (cons (car el) (cdr el))) l))
+
+(define (procedure? obj)
+  (or2 (lambda? obj)
+       (or2 (native-procedure? obj) (continuation? obj))))

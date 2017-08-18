@@ -17,10 +17,15 @@ def_proc 'set-car!', set_car
 def_proc 'set-cdr!', set_cdr
 def_proc 'pair?', pairp
 def_proc 'symbol?', symbolp
-def_proc 'procedure?', procedurep
 def_proc 'number?', numberp
 def_proc 'string?', stringp
 def_proc 'null?', nullp
+def_proc 'environment?', environmentp
+def_proc 'continuation?', continuationp
+def_proc 'native-procedure?', native_procedurep
+def_proc 'native-special?', native_specialp
+def_proc 'lambda?', lambdap
+def_proc 'macro?', macrop
 def_proc 'eq?', scheme_eq
 def_proc 'not', scheme_not
 def_proc '=', arithmetic_equals

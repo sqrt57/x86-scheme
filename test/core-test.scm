@@ -27,6 +27,9 @@
 (test-assert "symbol?-#f" (not (symbol? "dgf")))
 (test-assert "procedure?-#t" (procedure? (lambda () (quote w))))
 (test-assert "procedure?-#f" (not (procedure? (quote (lambda () (quote w))))))
+(test-assert "procedure?-native" (procedure? car))
+(test-assert "procedure?-continuation"
+             (procedure? (call/cc (lambda (x) (x x)))))
 (test-assert "number?-#t" (number? 25))
 (test-assert "number?-#f" (not (number? (quote t))))
 (test-assert "string?-#t" (string? "Hello world"))
@@ -102,9 +105,6 @@
 
 (test-eq "list" (cadr (list (quote a) (quote b) (quote c))) (quote b))
 (test-eq "list-empty" (list) (quote ()))
-
-(test-assert "procedure?-lambda" (procedure? tst))
-(test-assert "procedure?-native" (procedure? car))
 
 (test-end "core")
 

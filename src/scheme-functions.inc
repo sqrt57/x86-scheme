@@ -228,16 +228,6 @@ symbolp:
         je return_true
         jmp return_false
 
-procedurep:
-        ensure_procedure_args 1
-        mov ecx, [eax+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.lambda
-        je return_true
-        cmp ecx, object.tag.native_procedure
-        je return_true
-        jmp return_false
-
 numberp:
         ensure_procedure_args 1
         mov ecx, [eax+object.tag]
@@ -259,6 +249,54 @@ nullp:
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.empty_list
+        je return_true
+        jmp return_false
+
+environmentp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.environment
+        je return_true
+        jmp return_false
+
+continuationp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.continuation
+        je return_true
+        jmp return_false
+
+native_procedurep:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.native_procedure
+        je return_true
+        jmp return_false
+
+native_specialp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.native_special
+        je return_true
+        jmp return_false
+
+lambdap:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.lambda
+        je return_true
+        jmp return_false
+
+macrop:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.macro
         je return_true
         jmp return_false
 
