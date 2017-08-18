@@ -16,10 +16,13 @@
                       body)))))
 
 (defmacro (or2 x y)
-  ((lambda (x y) (if x x y)) x y))
+  (list (list (quote lambda)
+              (list (quote or2-x))
+              (list (quote if) (quote or2-x) (quote or2-x) y))
+        x))
 
 (defmacro (and2 x y)
-  ((lambda (x y) (if x y x)) x y))
+  (list (quote if) x y #f))
 
 (defmacro (define head . body)
   (if (pair? head)
