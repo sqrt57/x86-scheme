@@ -5,7 +5,7 @@
 
 object.tag = 0x00
 object.gc_copy = 0x04
-object.tag_bits = 4
+object.tag_bits = 5
 object.tag_ceiling = 1 shl object.tag_bits
 object.tag.type_mask = (1 shl object.tag_bits) - 1
 object.tag.empty_list = 0x01
@@ -13,14 +13,15 @@ object.tag.cons_cell = 0x02
 object.tag.symbol = 0x03
 object.tag.string = 0x04
 object.tag.number = 0x05
-object.tag.bytevector = 0x06
-object.tag.environment = 0x07
+object.tag.vector = 0x06
+object.tag.bytevector = 0x07
+object.tag.environment = 0x08
 ; Continuation, has 4 additional fields
-object.tag.continuation = 0x08
-object.tag.native_procedure = 0x09
-object.tag.native_special = 0x0a
-object.tag.lambda = 0x0b
-object.tag.macro = 0x0c
+object.tag.continuation = 0x09
+object.tag.native_procedure = 0x0a
+object.tag.native_special = 0x0b
+object.tag.lambda = 0x0c
+object.tag.macro = 0x0d
 
 object.tag.fixed = 0x100
 object.tag.gc_copied = 0x200
