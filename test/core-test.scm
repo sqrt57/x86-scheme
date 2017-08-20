@@ -106,6 +106,11 @@
 (test-eq "list" (cadr (list (quote a) (quote b) (quote c))) (quote b))
 (test-eq "list-empty" (list) (quote ()))
 
+(test-eq "lexical-scope"
+  ((lambda (x) (((lambda (x) (lambda () x)) (quote lexical))))
+    (quote dynamical))
+  (quote lexical))
+
 (test-end "core")
 
 (test-begin "write" 0)

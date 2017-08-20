@@ -309,21 +309,15 @@ eval:
         ; EBX - procedure
         ; ESI - procedure formal parameters list
         ; EDI - list of evaluated arguments
-        mov esi, [ebx+lambda.args]
-        ccall memory_create_environment
-        mov edx, [eval_environment]
-        mov [eax+environment.parent], edx
-        mov [eval_environment], eax
-        ccall bind_parameters, esi, edi
-        test eax, eax
-        jz .lambda_args_count
-        mov edx, [eval_environment]
-        mov [edx+environment.bindings], eax
+        ; Save current environment for popping it later
         ccall memory_create_continuation, .pop_environment
         mov ecx, [eval_current_continuation]
         mov ecx, [ecx+continuation.next]
         mov [eax+continuation.next], ecx
+        mov ecx, [eval_environment]
+        mov [eax+continuation.x], ecx
         mov [eval_current_continuation], eax
+        ; Create continuation for evaluating lambda body
         ccall memory_create_continuation, .eval_list
         mov ecx, [eval_current_continuation]
         mov [eax+continuation.next], ecx
@@ -333,6 +327,18 @@ eval:
         xor eax, eax
         mov [eval_argument], eax
         mov dword [eval_args], empty_list
+        ; Create new environment
+        ccall memory_create_environment
+        mov edx, [ebx+lambda.environment]
+        mov [eax+environment.parent], edx
+        mov [eval_environment], eax
+        ; Set bindings for lambda arguments in new environment
+        mov esi, [ebx+lambda.args]
+        ccall bind_parameters, esi, edi
+        test eax, eax
+        jz .lambda_args_count
+        mov edx, [eval_environment]
+        mov [edx+environment.bindings], eax
         jmp .next
     .lambda_args_count:
         mov eax, lambda_args_count_str
@@ -342,25 +348,20 @@ eval:
         ; EBX - macro
         ; ESI - macro formal parameters list
         ; EDI - list of evaluated arguments
-        mov esi, [ebx+macro.args]
-        ccall memory_create_environment
-        mov edx, [eval_environment]
-        mov [eax+environment.parent], edx
-        mov [eval_environment], eax
-        ccall bind_parameters, esi, edi
-        test eax, eax
-        jz .macro_args_count
-        mov edx, [eval_environment]
-        mov [edx+environment.bindings], eax
+        ; Continuation for evaluating expanded macro
         ccall memory_create_continuation, .eval
         mov ecx, [eval_current_continuation]
         mov ecx, [ecx+continuation.next]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
+        ; Save current environment for popping it later
         ccall memory_create_continuation, .pop_environment
         mov ecx, [eval_current_continuation]
         mov [eax+continuation.next], ecx
+        mov ecx, [eval_environment]
+        mov [eax+continuation.x], ecx
         mov [eval_current_continuation], eax
+        ; Continuation for evaluating macro body
         ccall memory_create_continuation, .eval_list
         mov ecx, [eval_current_continuation]
         mov [eax+continuation.next], ecx
@@ -370,6 +371,18 @@ eval:
         xor eax, eax
         mov [eval_argument], eax
         mov dword [eval_args], empty_list
+        ; Create new environment
+        mov esi, [ebx+macro.args]
+        ccall memory_create_environment
+        mov edx, [ebx+macro.environment]
+        mov [eax+environment.parent], edx
+        mov [eval_environment], eax
+        ; Set bindings for macro arguments in new environment
+        ccall bind_parameters, esi, edi
+        test eax, eax
+        jz .macro_args_count
+        mov edx, [eval_environment]
+        mov [edx+environment.bindings], eax
         jmp .next
     .macro_args_count:
         mov eax, macro_args_count_str
@@ -409,10 +422,9 @@ eval:
         jmp .next
 
     .pop_environment:
-        mov eax, [eval_environment]
-        mov eax, [eax+environment.parent]
-        mov [eval_environment], eax
         mov eax, [eval_current_continuation]
+        mov ecx, [eax+continuation.x]
+        mov [eval_environment], ecx
         mov eax, [eax+continuation.next]
         mov [eval_current_continuation], eax
         jmp .next

@@ -4,7 +4,7 @@
 + Printing environments
 + Associative list manipulation
 + Environments manipulation
-- Type checkers for environments, etc
++ Type checkers for environments, etc
 - Eval with environment parameter
 - Apply
 - Add character type
