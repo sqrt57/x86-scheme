@@ -41,7 +41,7 @@ scheme_if:
         mov edx, [edx+cons_cell.cdr]
         mov ecx, [edx+cons_cell.car]
         mov [eax+continuation.y], ecx
-        ccall memory_create_continuation, eval.eval
+        ccall memory_create_continuation, eval.eval_cur_env
         mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
         mov [eval_current_continuation], eax
@@ -50,7 +50,7 @@ scheme_if:
 
 if_continuation:
         ensure_special_args_simple 1
-        ccall memory_create_continuation, eval.eval
+        ccall memory_create_continuation, eval.eval_cur_env
         mov edx, [eval_current_continuation]
         mov ecx, [edx+continuation.next]
         mov [eax+continuation.next], ecx
@@ -141,7 +141,7 @@ scheme_define:
         mov ecx, [eval_argument]
         mov [eax+continuation.x], ecx
         mov [eval_current_continuation], eax
-        ccall memory_create_continuation, eval.eval
+        ccall memory_create_continuation, eval.eval_cur_env
         mov ecx, [eval_current_continuation]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
@@ -221,7 +221,7 @@ scheme_set:
         mov ecx, [eval_argument]
         mov [eax+continuation.x], ecx
         mov [eval_current_continuation], eax
-        ccall memory_create_continuation, eval.eval
+        ccall memory_create_continuation, eval.eval_cur_env
         mov ecx, [eval_current_continuation]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
@@ -259,12 +259,12 @@ set_continuation:
 
 scheme_eval:
         ensure_special_args_simple 1
-        ccall memory_create_continuation, eval.eval
+        ccall memory_create_continuation, eval.eval_cur_env
         mov ecx, [eval_current_continuation]
         mov ecx, [ecx+continuation.next]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
-        ccall memory_create_continuation, eval.eval
+        ccall memory_create_continuation, eval.eval_cur_env
         mov ecx, [eval_current_continuation]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
@@ -277,7 +277,7 @@ call_cc:
         mov ecx, [ecx+continuation.next]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
-        ccall memory_create_continuation, eval.eval
+        ccall memory_create_continuation, eval.eval_cur_env
         mov ecx, [eval_current_continuation]
         mov [eax+continuation.next], ecx
         mov [eval_current_continuation], eax
@@ -322,4 +322,13 @@ begin:
         mov ecx, [eval_current_continuation]
         mov ecx, [ecx+continuation.next]
         mov [eval_current_continuation], ecx
+        jmp eval.next
+
+current_environment:
+        ensure_special_args_simple 0
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eval_current_continuation], ecx
+        mov eax, [eval_environment]
+        mov [eval_argument], eax
         jmp eval.next

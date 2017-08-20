@@ -32,7 +32,7 @@ eval:
         mov [eval_argument], eax
         ccall memory_create_continuation, .return_code
         mov [eval_current_continuation], eax
-        ccall memory_create_continuation, .eval
+        ccall memory_create_continuation, .eval_cur_env
         mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
         mov [eval_current_continuation], eax
@@ -47,7 +47,7 @@ eval:
         xor eax, eax
         jmp .ret
 
-    .eval:
+    .eval_cur_env:
         mov eax, [eval_args]
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
@@ -141,7 +141,7 @@ eval:
         mov [eax+continuation.x], edx
         mov [eval_current_continuation], eax
         ; But before we evaluate CAR of this cons cell
-        ccall memory_create_continuation, .eval
+        ccall memory_create_continuation, .eval_cur_env
         mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
         mov [eval_current_continuation], eax
@@ -241,7 +241,7 @@ eval:
         mov [eax+continuation.z], ecx
         mov [eval_current_continuation], eax
         ; But before we evaluate CAR of this cons cell
-        ccall memory_create_continuation, .eval
+        ccall memory_create_continuation, .eval_cur_env
         mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
         mov [eval_current_continuation], eax
@@ -349,7 +349,7 @@ eval:
         ; ESI - macro formal parameters list
         ; EDI - list of evaluated arguments
         ; Continuation for evaluating expanded macro
-        ccall memory_create_continuation, .eval
+        ccall memory_create_continuation, .eval_cur_env
         mov ecx, [eval_current_continuation]
         mov ecx, [ecx+continuation.next]
         mov [eax+continuation.next], ecx
@@ -412,7 +412,7 @@ eval:
         mov esi, [edx+continuation.x]
         mov ecx, [esi+cons_cell.cdr]
         mov [eax+continuation.x], ecx
-        ccall memory_create_continuation, .eval
+        ccall memory_create_continuation, .eval_cur_env
         mov edx, [eval_current_continuation]
         mov [eax+continuation.next], edx
         mov [eval_current_continuation], eax

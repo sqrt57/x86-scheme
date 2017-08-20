@@ -101,7 +101,8 @@
 (set-environment-bindings! env blist)
 (test-eq "set-env-bindings" (environment-bindings env) blist)
 
-(test-eq "eval" (eval (quote (car (quote (a . b))))) (quote a))
+(test-eq "eval"
+  (eval-current-environment (quote (car (quote (a . b))))) (quote a))
 
 (test-eq "list" (cadr (list (quote a) (quote b) (quote c))) (quote b))
 (test-eq "list-empty" (list) (quote ()))
@@ -110,6 +111,10 @@
   ((lambda (x) (((lambda (x) (lambda () x)) (quote lexical))))
     (quote dynamical))
   (quote lexical))
+
+(define env #f)
+((lambda (x y) (set! env (current-environment))) (quote one) (quote two))
+(test-eq "current-environment" (cdar (environment-bindings env)) (quote one))
 
 (test-end "core")
 

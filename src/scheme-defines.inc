@@ -55,10 +55,11 @@ def_special 'lambda', lambda
 def_special 'macro', scheme_macro
 def_special 'define', scheme_define
 def_special 'set!', scheme_set
-def_special 'eval', scheme_eval
+def_special 'eval-current-environment', scheme_eval
 def_special 'call-with-current-continuation', call_cc
 def_special 'call/cc', call_cc
 def_special 'begin', begin
+def_special 'current-environment', current_environment
 
 def_symbol true, '#t', true
 def_symbol false, '#f', false
