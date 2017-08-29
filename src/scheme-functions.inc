@@ -652,3 +652,29 @@ scheme_gc:
         mov edx, empty_list
         xor ecx, ecx
         ret
+
+scheme_eval:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        push eax
+        push edx
+        ccall memory_create_continuation, eval.pop_environment
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov ecx, [eval_environment]
+        mov [eax+continuation.x], ecx
+        mov ecx, [eval_current_continuation]
+        mov [ecx+continuation.next], eax
+        ccall memory_create_continuation, eval.eval_cur_env
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov ecx, [eval_current_continuation]
+        mov [ecx+continuation.next], eax
+        pop edx
+        mov [eval_environment], edx
+        pop eax
+        mov edx, empty_list
+        xor ecx, ecx
+        ret

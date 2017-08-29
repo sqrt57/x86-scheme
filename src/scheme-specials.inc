@@ -257,7 +257,7 @@ set_continuation:
         pop esi
         jmp eval.process_error
 
-scheme_eval:
+scheme_eval_current_environment:
         ensure_special_args_simple 1
         ccall memory_create_continuation, eval.eval_cur_env
         mov ecx, [eval_current_continuation]

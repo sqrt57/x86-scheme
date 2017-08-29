@@ -48,6 +48,7 @@ def_proc 'mem-max-allocated', mem_max_allocated_proc
 def_proc 'write', scheme_write
 def_proc 'include', scheme_include
 def_proc 'gc', scheme_gc
+def_proc 'eval', scheme_eval
 
 def_special 'quote', quote
 def_special 'if', scheme_if
@@ -55,7 +56,7 @@ def_special 'lambda', lambda
 def_special 'macro', scheme_macro
 def_special 'define', scheme_define
 def_special 'set!', scheme_set
-def_special 'eval-current-environment', scheme_eval
+def_special 'eval-current-environment', scheme_eval_current_environment
 def_special 'call-with-current-continuation', call_cc
 def_special 'call/cc', call_cc
 def_special 'begin', begin

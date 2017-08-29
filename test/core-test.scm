@@ -116,6 +116,14 @@
 ((lambda (x y) (set! env (current-environment))) (quote one) (quote two))
 (test-eq "current-environment" (cdar (environment-bindings env)) (quote one))
 
+(define env (create-environment))
+(set-environment-bindings!
+  env
+  (list (cons (quote plus) +)
+        (cons (quote one) 1)
+        (cons (quote two) 2)))
+(test-assert "eval" (= (eval (quote (plus one two)) env) 3))
+
 (test-end "core")
 
 (test-begin "write" 0)
