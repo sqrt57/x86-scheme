@@ -124,6 +124,8 @@
         (cons (quote two) 2)))
 (test-assert "eval" (= (eval (quote (plus one two)) env) 3))
 
+(test-assert "apply" (= (apply + (list 1 2 3)) 6))
+
 (test-end "core")
 
 (test-begin "write" 0)

@@ -5,8 +5,10 @@
 + Associative list manipulation
 + Environments manipulation
 + Type checkers for environments, etc
-- Eval with environment parameter
-- Apply
++ Eval with environment parameter
++ Apply
+- eqv? and equal?
+- Macros for native procedures and specials
 - Add character type
 - Paths routines
 - Directory routines

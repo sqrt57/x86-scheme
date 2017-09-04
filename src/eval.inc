@@ -266,7 +266,7 @@ eval:
         mov eax, do_apply_unknown_type_str
         jmp .process_error
     .native_procedure_args:
-        mov ecx, [eax+object.tag]
+        mov ecx, [edi+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.cons_cell
         je .native_procedure_many_args
@@ -274,8 +274,8 @@ eval:
         mov edx, empty_list
         jmp .do_apply_native_procedure
     .native_procedure_many_args:
-        mov edx, [eax+cons_cell.cdr]
-        mov eax, [eax+cons_cell.car]
+        mov edx, [edi+cons_cell.cdr]
+        mov eax, [edi+cons_cell.car]
     .do_apply_native_procedure:
         call dword [ebx+native_procedure.code]
         test ecx, ecx
@@ -290,8 +290,22 @@ eval:
         mov eax, ecx
         jmp .process_error
 
+    .apply_continuation:
+        mov ebx, [eval_argument]
+        mov edi, [eval_args]
+        mov ecx, [ebx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.native_procedure
+        je .native_procedure_args
+        cmp ecx, object.tag.lambda
+        je .do_apply_lambda
+        cmp ecx, object.tag.continuation
+        je .continuation_args
+        mov eax, do_apply_unknown_type_str
+        jmp .process_error
+
     .continuation_args:
-        mov ecx, [eax+object.tag]
+        mov ecx, [edi+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.cons_cell
         je .continuation_many_args
@@ -299,8 +313,8 @@ eval:
         mov edx, empty_list
         jmp .do_apply_continuation
     .continuation_many_args:
-        mov edx, [eax+cons_cell.cdr]
-        mov eax, [eax+cons_cell.car]
+        mov edx, [edi+cons_cell.cdr]
+        mov eax, [edi+cons_cell.car]
     .do_apply_continuation:
         mov [eval_current_continuation], ebx
         jmp .next

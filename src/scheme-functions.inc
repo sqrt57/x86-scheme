@@ -678,3 +678,19 @@ scheme_eval:
         mov edx, empty_list
         xor ecx, ecx
         ret
+
+apply:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        push eax
+        push edx
+        ccall memory_create_continuation, eval.apply_continuation
+        mov ecx, [eval_current_continuation]
+        mov ecx, [ecx+continuation.next]
+        mov [eax+continuation.next], ecx
+        mov ecx, [eval_current_continuation]
+        mov [ecx+continuation.next], eax
+        pop edx
+        pop eax
+        xor ecx, ecx
+        ret
