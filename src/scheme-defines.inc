@@ -55,7 +55,7 @@ def_special 'quote', quote
 def_special 'if', scheme_if
 def_special 'lambda', lambda
 def_special 'macro', scheme_macro
-def_special 'define', scheme_define
+def_special 'builtin-define', scheme_define
 def_special 'set!', scheme_set
 def_special 'eval-current-environment', scheme_eval_current_environment
 def_special 'call-with-current-continuation', call_cc

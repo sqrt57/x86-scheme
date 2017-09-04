@@ -3,11 +3,9 @@
 ; This file is part of x86-scheme project.
 ; Copyright (c) 2015-2017, Dmitry Grigoryev
 
-(define builtin-define define)
+(builtin-define list (lambda elems elems))
 
-(define list (lambda elems elems))
-
-(define defmacro
+(builtin-define defmacro
   (macro (head . body)
     (list (quote builtin-define)
           (car head)
