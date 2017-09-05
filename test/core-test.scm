@@ -132,12 +132,30 @@
 (test-eq "cond-short" (cond ((quote a))) (quote a))
 (test-eq "cond-two" (cond (#f (quote a)) (#t (quote b))) (quote b))
 
+(test-assert "eq?-symbol-#t" (eq? (quote a) (quote a)))
+(test-assert "eq?-symbol-#f" (not (eq? (quote a) (quote b))))
+(test-assert "eq?-string-#f" (not (eq? "hello" "hello")))
+(test-assert "eq?-number-#f" (not (eq? 5 5)))
+(test-assert "eq?-pair-#f" (not (eqv? (cons 1 2) (cons 1 2))))
+(test-assert "eq?-types-#f" (not (eqv? 1 "1")))
+
 (test-assert "eqv?-symbol-#t" (eqv? (quote a) (quote a)))
 (test-assert "eqv?-symbol-#f" (not (eqv? (quote a) (quote b))))
 (test-assert "eqv?-string-#t" (eqv? "hello" "hello"))
 (test-assert "eqv?-number-#t" (eqv? 5 5))
 (test-assert "eqv?-pair-#f" (not (eqv? (cons 1 2) (cons 1 2))))
 (test-assert "eqv?-types-#f" (not (eqv? 1 "1")))
+
+(test-assert "equal?-symbol-#t" (equal? (quote a) (quote a)))
+(test-assert "equal?-symbol-#f" (not (equal? (quote a) (quote b))))
+(test-assert "equal?-string-#t" (equal? "hello" "hello"))
+(test-assert "equal?-number-#t" (equal? 5 5))
+(test-assert "equal?-pair-#t" (equal? (cons 1 2) (cons 1 2)))
+(test-assert "equal?-types-#f" (not (equal? 1 "1")))
+(test-assert "equal?-list-#t"
+             (equal?
+               (list 1 (quote a) (cons 3 7) "454")
+               (list 1 (quote a) (cons 3 7) "454")))
 
 (test-end "core")
 

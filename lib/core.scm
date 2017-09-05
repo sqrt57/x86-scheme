@@ -108,3 +108,10 @@
     ((and2 (number? x) (number? y)) (= x y))
     ((and2 (string? x) (string? y)) (string=? x y))
     (#t #f)))
+
+(define (equal? x y)
+  (cond
+    ((eqv? x y))
+    ((and2 (pair? x) (pair? y))
+      (and2 (equal? (car x) (car y)) (equal? (cdr x) (cdr y))))
+    (#t #f)))
