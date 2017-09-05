@@ -132,6 +132,13 @@
 (test-eq "cond-short" (cond ((quote a))) (quote a))
 (test-eq "cond-two" (cond (#f (quote a)) (#t (quote b))) (quote b))
 
+(test-assert "eqv?-symbol-#t" (eqv? (quote a) (quote a)))
+(test-assert "eqv?-symbol-#f" (not (eqv? (quote a) (quote b))))
+(test-assert "eqv?-string-#t" (eqv? "hello" "hello"))
+(test-assert "eqv?-number-#t" (eqv? 5 5))
+(test-assert "eqv?-pair-#f" (not (eqv? (cons 1 2) (cons 1 2))))
+(test-assert "eqv?-types-#f" (not (eqv? 1 "1")))
+
 (test-end "core")
 
 (test-begin "write" 0)

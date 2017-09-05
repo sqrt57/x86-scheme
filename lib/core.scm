@@ -101,3 +101,10 @@
                 (cadr clause)
                 rest)
           (error "cond: bad syntax"))))
+
+(define (eqv? x y)
+  (cond
+    ((eq? x y))
+    ((and2 (number? x) (number? y)) (= x y))
+    ((and2 (string? x) (string? y)) (string=? x y))
+    (#t #f)))
