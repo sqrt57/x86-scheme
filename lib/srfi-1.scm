@@ -3,12 +3,22 @@
 ; This file is part of x86-scheme project.
 ; Copyright (c) 2015-2017, Dmitry Grigoryev
 
-(define (fold-left f z lst)
+(define (fold f z lst)
   (if (pair? lst)
-      (fold-left f (f z (car lst)) (cdr lst))
+      (fold f (f z (car lst)) (cdr lst))
       z))
 
-(define (reduce-left f z lst)
+(define (reduce f z lst)
   (if (pair? lst)
-      (fold-left f (car lst) (cdr lst))
+      (fold f (car lst) (cdr lst))
+      z))
+
+(define (fold-right f z lst)
+  (if (pair? lst)
+      (f (car lst) (fold-right f z (cdr lst)))
+      z))
+
+(define (reduce-right f z lst)
+  (if (pair? lst)
+      (f (car lst) (fold-right f (cdr lst)))
       z))

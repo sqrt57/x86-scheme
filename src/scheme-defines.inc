@@ -50,6 +50,7 @@ def_proc 'include', scheme_include
 def_proc 'gc', scheme_gc
 def_proc 'eval', scheme_eval
 def_proc 'apply', apply
+def_proc 'error', error
 
 def_special 'quote', quote
 def_special 'if', scheme_if

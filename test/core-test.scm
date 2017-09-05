@@ -126,6 +126,12 @@
 
 (test-assert "apply" (= (apply + (list 1 2 3)) 6))
 
+(test-eq "cond-empty" (cond) #t)
+(test-eq "cond-true" (cond (#t (quote a))) (quote a))
+(test-eq "cond-false" (cond (#f (quote a))) #t)
+(test-eq "cond-short" (cond ((quote a))) (quote a))
+(test-eq "cond-two" (cond (#f (quote a)) (#t (quote b))) (quote b))
+
 (test-end "core")
 
 (test-begin "write" 0)
@@ -138,3 +144,5 @@
 (write if)
 
 (test-end "write")
+
+(error "Expected test error")

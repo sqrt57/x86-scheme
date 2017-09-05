@@ -694,3 +694,8 @@ apply:
         pop eax
         xor ecx, ecx
         ret
+
+error:
+        ensure_procedure_args 1
+        mov ecx, eax
+        ret
