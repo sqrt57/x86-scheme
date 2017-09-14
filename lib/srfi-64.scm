@@ -14,3 +14,9 @@
 
 (define (test-eq name x y)
   (test-assert name (eq? x y)))
+
+(define (test-eqv name x y)
+  (test-assert name (eqv? x y)))
+
+(define (test-equal name x y)
+  (test-assert name (equal? x y)))

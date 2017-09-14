@@ -7,17 +7,20 @@
 + Type checkers for environments, etc
 + Eval with environment parameter
 + Apply
-- eqv? and equal?
-- Macros for native procedures and specials
-- Add character type
++ eqv? and equal?
++ Replace test-eq tests with test-equal
+- Simplify + and - to 2 arguments
+- Add boolean type
+- Add ASCII character type
 - Paths routines
 - Directory routines
 - Require/provide
 - File reading
 - Replaceable reader
-- Virtual tables (size, print, execute, garbage collect)
 - Add user-defined types
 - File writing
 - Replaceable top-level interpreter
 - New interpreter
 - syntax-rules
+- Virtual tables (size, print, execute, garbage collect)
+- Fasm macros for native procedures and specials

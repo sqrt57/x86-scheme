@@ -71,50 +71,53 @@
 (add-feature! (quote test-feature))
 (test-assert "add-feature!" (has-feature? (quote test-feature)))
 
-(test-eq "assq-#t"
-         (cadr (assq (quote h) (quote ((a b) (h i) (e f)))))
-         (quote i))
+(test-equal "assq-#t"
+            (assq (quote h) (quote ((a b) (h i) (e f))))
+            (quote (h i)))
 (test-assert "assq-#f" (not (assq (quote h) (quote ((a b) (c d))))))
 
-(test-assert "map" (= (cadr (map (lambda (x) (+ 10 x))
-                            (quote (1 2))))
-                   12))
+(test-equal "map" (map (lambda (x) (+ 10 x))
+                       (quote (1 2)))
+                  (quote (11 12)))
 (define l (quote ((a (b)) (c d))))
 (define lc (alist-copy l))
 (test-assert "alist-copy-new1" (not (eq? l lc)))
 (test-assert "alist-copy-new2" (not (eq? (car l) (car lc))))
-(test-eq "alist-same-key" (caar l) (caar lc))
-(test-eq "alist-same-value" (cadar l) (cadar lc))
+(test-equal "alist-copy" l lc)
 
 (define pair (quote (a . b)))
 (set-car! pair (quote c))
-(test-eq "set-car!" (car pair) (quote c))
+(test-equal "set-car!" pair (quote (c . b)))
+(define pair (quote (a . b)))
 (set-cdr! pair (quote d))
-(test-eq "set-cdr!" (cdr pair) (quote d))
+(test-equal "set-cdr!" pair (quote (a . d)))
 
 (define env (create-environment))
 (test-eq "new-env-parent" (environment-parent env) #f)
 (test-eq "new-env-bindings" (environment-bindings env) (quote ()))
 (set-environment-parent! env (global-environment))
 (test-eq "set-env-parent" (environment-parent env) (global-environment))
-(define blist (quote ((a 1) (b 2))))
-(set-environment-bindings! env blist)
-(test-eq "set-env-bindings" (environment-bindings env) blist)
+(set-environment-bindings! env (quote ((a 1) (b 2))))
+(test-equal "set-env-bindings" (environment-bindings env) (quote ((a 1) (b 2))))
 
-(test-eq "eval"
-  (eval-current-environment (quote (car (quote (a . b))))) (quote a))
+(test-equal "eval"
+            (eval-current-environment
+              (quote (car (quote (a . b)))))
+              (quote a))
 
-(test-eq "list" (cadr (list (quote a) (quote b) (quote c))) (quote b))
-(test-eq "list-empty" (list) (quote ()))
+(test-equal "list" (list (quote a) (quote b) (quote c)) (quote (a b c)))
+(test-equal "list-empty" (list) (quote ()))
 
-(test-eq "lexical-scope"
+(test-equal "lexical-scope"
   ((lambda (x) (((lambda (x) (lambda () x)) (quote lexical))))
     (quote dynamical))
   (quote lexical))
 
 (define env #f)
 ((lambda (x y) (set! env (current-environment))) (quote one) (quote two))
-(test-eq "current-environment" (cdar (environment-bindings env)) (quote one))
+(test-equal "current-environment"
+            (environment-bindings env)
+            (quote ((x . one) (y . two))))
 
 (define env (create-environment))
 (set-environment-bindings!
@@ -122,15 +125,15 @@
   (list (cons (quote plus) +)
         (cons (quote one) 1)
         (cons (quote two) 2)))
-(test-assert "eval" (= (eval (quote (plus one two)) env) 3))
+(test-equal "eval" (eval (quote (plus one two)) env) 3)
 
-(test-assert "apply" (= (apply + (list 1 2 3)) 6))
+(test-equal "apply" (apply + (list 1 2 3)) 6)
 
-(test-eq "cond-empty" (cond) #t)
-(test-eq "cond-true" (cond (#t (quote a))) (quote a))
-(test-eq "cond-false" (cond (#f (quote a))) #t)
-(test-eq "cond-short" (cond ((quote a))) (quote a))
-(test-eq "cond-two" (cond (#f (quote a)) (#t (quote b))) (quote b))
+(test-equal "cond-empty" (cond) #t)
+(test-equal "cond-true" (cond (#t (quote a))) (quote a))
+(test-equal "cond-false" (cond (#f (quote a))) #t)
+(test-equal "cond-short" (cond ((quote a))) (quote a))
+(test-equal "cond-two" (cond (#f (quote a)) (#t (quote b))) (quote b))
 
 (test-assert "eq?-symbol-#t" (eq? (quote a) (quote a)))
 (test-assert "eq?-symbol-#f" (not (eq? (quote a) (quote b))))
