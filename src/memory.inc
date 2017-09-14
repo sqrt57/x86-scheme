@@ -200,6 +200,8 @@ gc_process:
         je .lambda
         cmp ecx, object.tag.macro
         je .macro
+        cmp ecx, object.tag.boolean
+        je .ret
         write process_unknown_object
         ccall exit, 1
     .cons_cell:
@@ -312,6 +314,8 @@ get_object_dword_size:
         je .lambda
         cmp ecx, object.tag.macro
         je .macro
+        cmp ecx, object.tag.boolean
+        je .boolean
         write size_unknown_object
         ccall exit, 1
     .empty_list:
@@ -358,6 +362,9 @@ get_object_dword_size:
         ret
     .macro:
         mov eax, object_size.macro shr 2
+        ret
+    .boolean:
+        mov eax, object_size.boolean shr 2
         ret
 
 ; Copies old object to live memory.

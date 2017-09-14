@@ -7,6 +7,14 @@ align0 4
 
 empty_list dd object.tag.empty_list or object.tag.fixed
 
+true:
+        dd  object.tag.boolean or object.tag.fixed
+        dd  1
+
+false:
+        dd  object.tag.boolean or object.tag.fixed
+        dd  0
+
 def_proc '+2', scheme_add
 def_proc '-1', scheme_negate
 def_proc 'reverse', reverse
@@ -26,6 +34,7 @@ def_proc 'native-procedure?', native_procedurep
 def_proc 'native-special?', native_specialp
 def_proc 'lambda?', lambdap
 def_proc 'macro?', macrop
+def_proc 'boolean?', booleanp
 def_proc 'eq?', scheme_eq
 def_proc 'not', scheme_not
 def_proc '=', arithmetic_equals
@@ -64,8 +73,8 @@ def_special 'call/cc', call_cc
 def_special 'begin', begin
 def_special 'current-environment', current_environment
 
-def_symbol true, '#t', true
-def_symbol false, '#f', false
+def_symbol true_symbol, '#t', true
+def_symbol false_symbol, '#f', false
 def_symbol_unbound symbol_linux, 'linux32'
 def_symbol_unbound symbol_win32, 'win32'
 def_symbol symbol_platform, '*platform*', current_platform

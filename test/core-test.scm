@@ -42,6 +42,9 @@
 (test-assert "number?-#f" (not (number? (quote t))))
 (test-assert "string?-#t" (string? "Hello world"))
 (test-assert "string?-#f" (not (string? (quote t))))
+(test-assert "boolean?-1" (boolean? #t))
+(test-assert "boolean?-2" (boolean? #f))
+(test-assert "boolean?-#f" (not (boolean? (quote #f))))
 
 (test-assert "null?-empty-list" (null? (quote ())))
 (test-assert "null?-symbol" (not (null? (quote a))))
@@ -178,6 +181,8 @@
 (write +)
 (write define)
 (write if)
+(write #t)
+(write #f)
 
 (test-end "write")
 

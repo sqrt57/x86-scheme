@@ -71,6 +71,8 @@ eval:
         je .self
         cmp edx, object.tag.bytevector
         je .self
+        cmp edx, object.tag.boolean
+        je .self
         jmp .unknown_type
 
     .eval_zero_args:

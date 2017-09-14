@@ -9,8 +9,8 @@
 + Apply
 + eqv? and equal?
 + Replace test-eq tests with test-equal
-- Simplify + and - to 2 arguments
-- Add boolean type
++ Simplify builtin + and - to 2 and 1 arguments correspondingly
++ Add boolean type
 - Add ASCII character type
 - Paths routines
 - Directory routines

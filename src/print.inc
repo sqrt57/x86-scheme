@@ -44,6 +44,8 @@ print:
         je .lambda
         cmp edx, object.tag.macro
         je .macro
+        cmp edx, object.tag.boolean
+        je .boolean
         write core_unknown_object
         ret
 
@@ -134,6 +136,16 @@ print:
 
     .empty_list:
         write empty_list
+        ret
+
+    .boolean:
+        mov ecx, [eax+boolean.value]
+        test ecx, ecx
+        jnz .true
+        write false
+        ret
+    .true:
+        write true
         ret
 
     .list:

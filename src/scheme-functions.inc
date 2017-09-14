@@ -237,6 +237,14 @@ macrop:
         je return_true
         jmp return_false
 
+booleanp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.boolean
+        je return_true
+        jmp return_false
+
 scheme_eq:
         ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]
