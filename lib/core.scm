@@ -46,6 +46,8 @@
 (define (cdddr x) (cdr (cdr (cdr x))))
 
 (define (string-append . strings) (reduce string-append-2 "" strings))
+(define (+ . nums) (reduce +2 0 nums))
+
 (define (memq obj list)
   (if (pair? list)
       (if (eq? (car list) obj)
@@ -115,3 +117,9 @@
     ((and2 (pair? x) (pair? y))
       (and2 (equal? (car x) (car y)) (equal? (cdr x) (cdr y))))
     (#t #f)))
+
+(define (- . nums)
+  (cond
+    ((null? nums) 0)
+    ((null? (cdr nums)) (-1 (car nums)))
+    (#t (+2 (car nums) (-1 (reduce +2 0 (cdr nums)))))))

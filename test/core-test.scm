@@ -5,7 +5,15 @@
 
 (test-begin "core" 2)
 
-(test-assert "addition" (= (+ 1 2) 3))
+(test-equal "+0" (+) 0)
+(test-equal "+1" (+ 1) 1)
+(test-equal "+2" (+ 1 2) 3)
+(test-equal "+3" (+ 1 2 3) 6)
+
+(test-equal "-0" (-) 0)
+(test-equal "-1" (- 1) (- 0 1))
+(test-equal "-2" (- 5 1) 4)
+(test-equal "-3" (- 5 1 2) 2)
 
 (define (tst)
   (define x 1)

@@ -47,103 +47,40 @@ reverse:
         ret
 
 scheme_add:
-        test eax, eax
-        jz .done
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.number
-        je .first_ok
-        mov ecx, arithmetic_error
-        ret
-    .first_ok:
-        mov eax, [eax+number.value]
-    .next:
-        test edx, edx
-        jz .done
+        jne .arithmetic_error
         mov ecx, [edx+object.tag]
         and ecx, object.tag.type_mask
-        cmp ecx, object.tag.cons_cell
-        je .get_car
-        cmp ecx, object.tag.empty_list
-        je .done
-        mov ecx, arg_list_error
-        ret
-    .get_car:
-        push ebx
-        mov ebx, [edx+cons_cell.car]
-        mov edx, [edx+cons_cell.cdr]
-        mov ecx, [ebx+object.tag]
-        and ecx, object.tag.type_mask
         cmp ecx, object.tag.number
-        je .next_ok
-        pop ebx
-        mov ecx, arithmetic_error
-        ret
-    .next_ok:
-        mov ecx, [ebx+number.value]
-        add eax, ecx
-        pop ebx
-        jmp .next
-    .done:
-        ccall memory_create_number, eax
-        xor ecx, ecx
+        jne .arithmetic_error
+        mov ecx, [eax+number.value]
+        add ecx, [edx+number.value]
+        ccall memory_create_number, ecx
         mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
         ret
 
-scheme_sub:
-        push esi
-        test eax, eax
-        jz .done
+scheme_negate:
+        ensure_procedure_args 1
         mov ecx, [eax+object.tag]
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.number
-        je .first_ok
-        mov ecx, arithmetic_error
-        ret
-    .first_ok:
-        xor esi, esi
-        mov eax, [eax+number.value]
-    .next:
-        test edx, edx
-        jz .done
-        mov ecx, [edx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.cons_cell
-        je .get_car
-        cmp ecx, object.tag.empty_list
-        je .done
-        mov ecx, arg_list_error
-        pop esi
-        ret
-    .get_car:
-        mov esi, 1
-        push ebx
-        mov ebx, [edx+cons_cell.car]
-        mov edx, [edx+cons_cell.cdr]
-        mov ecx, [ebx+object.tag]
-        and ecx, object.tag.type_mask
-        cmp ecx, object.tag.number
-        je .next_ok
-        pop ebx
-        pop esi
-        mov ecx, arithmetic_error
-        ret
-    .next_ok:
-        mov ecx, [ebx+number.value]
-        sub eax, ecx
-        pop ebx
-        jmp .next
-    .done:
-        test esi, esi
-        jnz .done1
-        ; Exactly one argument - calculate negative of it
-        not eax
-        inc eax
-    .done1:
-        pop esi
-        ccall memory_create_number, eax
-        xor ecx, ecx
+        jne .arithmetic_error
+        mov ecx, [eax+number.value]
+        neg ecx
+        ccall memory_create_number, ecx
         mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
         ret
 
 cons:

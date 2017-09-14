@@ -7,8 +7,8 @@ align0 4
 
 empty_list dd object.tag.empty_list or object.tag.fixed
 
-def_proc '+', scheme_add
-def_proc '-', scheme_sub
+def_proc '+2', scheme_add
+def_proc '-1', scheme_negate
 def_proc 'reverse', reverse
 def_proc 'cons', cons
 def_proc 'car', car
