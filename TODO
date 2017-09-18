@@ -11,7 +11,7 @@
 + Replace test-eq tests with test-equal
 + Simplify builtin + and - to 2 and 1 arguments correspondingly
 + Add boolean type
-- Add ASCII character type
++ Add ASCII character type
 - Paths routines
 - Directory routines
 - Require/provide

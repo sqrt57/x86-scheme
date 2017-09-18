@@ -35,6 +35,7 @@ def_proc 'native-special?', native_specialp
 def_proc 'lambda?', lambdap
 def_proc 'macro?', macrop
 def_proc 'boolean?', booleanp
+def_proc 'char?', charp
 def_proc 'eq?', scheme_eq
 def_proc 'not', scheme_not
 def_proc '=', arithmetic_equals
@@ -44,6 +45,10 @@ def_proc 'string=?', string_eq
 def_proc 'string->symbol', string_to_symbol
 def_proc 'symbol->string', symbol_to_string
 def_proc 'string-append-2', string_append_2
+def_proc 'string-ref', string_ref
+def_proc 'char=?', char_equals
+def_proc 'char->integer', char_to_integer
+def_proc 'integer->char', integer_to_char
 def_proc 'global-environment', global_environment
 def_proc 'create-environment', create_environment
 def_proc 'environment-parent', environment_parent
@@ -82,6 +87,10 @@ def_symbol symbol_platform, '*platform*', current_platform
 def_scheme_string arithmetic_error, 'non-number in arithmetic operation'
 def_scheme_string not_a_string_error, 'non-string in string operation'
 def_scheme_string not_a_symbol_error, 'non-symbol in symbol operation'
+def_scheme_string not_a_char_error, 'non-char in char operation'
+def_scheme_string char_out_of_bounds_error, \
+    'integer->char: argument out of char range'
+def_scheme_string string_ref_of_bounds_error, 'string-ref: index out of range'
 def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
 def_scheme_string special_bad_syntax, 'syntax error in special form call'

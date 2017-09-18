@@ -46,6 +46,8 @@ print:
         je .macro
         cmp edx, object.tag.boolean
         je .boolean
+        cmp edx, object.tag.char
+        je .char
         write core_unknown_object
         ret
 
@@ -146,6 +148,14 @@ print:
         ret
     .true:
         write true
+        ret
+
+    .char:
+        push eax
+        write character_syntax
+        pop eax
+        lea edx, [eax+char.value]
+        ccall write_string, edx, 1
         ret
 
     .list:

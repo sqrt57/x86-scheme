@@ -150,13 +150,15 @@
 (test-assert "eq?-symbol-#f" (not (eq? (quote a) (quote b))))
 (test-assert "eq?-string-#f" (not (eq? "hello" "hello")))
 (test-assert "eq?-number-#f" (not (eq? 5 5)))
-(test-assert "eq?-pair-#f" (not (eqv? (cons 1 2) (cons 1 2))))
-(test-assert "eq?-types-#f" (not (eqv? 1 "1")))
+(test-assert "eq?-pair-#f" (not (eq? (cons 1 2) (cons 1 2))))
+(test-assert "eq?-types-#f" (not (eq? 1 "1")))
 
 (test-assert "eqv?-symbol-#t" (eqv? (quote a) (quote a)))
 (test-assert "eqv?-symbol-#f" (not (eqv? (quote a) (quote b))))
 (test-assert "eqv?-string-#t" (eqv? "hello" "hello"))
 (test-assert "eqv?-number-#t" (eqv? 5 5))
+(test-assert "eqv?-char-#t" (eqv? (integer->char 55) (integer->char 55)))
+(test-assert "eqv?-char-#f" (not (eqv? (integer->char 55) (integer->char 3))))
 (test-assert "eqv?-pair-#f" (not (eqv? (cons 1 2) (cons 1 2))))
 (test-assert "eqv?-types-#f" (not (eqv? 1 "1")))
 
@@ -170,6 +172,11 @@
              (equal?
                (list 1 (quote a) (cons 3 7) "454")
                (list 1 (quote a) (cons 3 7) "454")))
+
+(test-equal "integer->char->integer" (char->integer (integer->char 233)) 233)
+(test-assert "char=?-#t" (char=? (integer->char 55) (integer->char 55)))
+(test-assert "char=?-#f" (not (char=? (integer->char 55) (integer->char 3))))
+(test-equal "string-ref" (char->integer (string-ref "123" 1)) 50)
 
 (test-end "core")
 

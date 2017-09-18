@@ -108,6 +108,7 @@
   (cond
     ((eq? x y))
     ((and2 (number? x) (number? y)) (= x y))
+    ((and2 (char? x) (char? y)) (char=? x y))
     ((and2 (string? x) (string? y)) (string=? x y))
     (#t #f)))
 

@@ -202,6 +202,8 @@ gc_process:
         je .macro
         cmp ecx, object.tag.boolean
         je .ret
+        cmp ecx, object.tag.char
+        je .ret
         write process_unknown_object
         ccall exit, 1
     .cons_cell:
@@ -316,6 +318,8 @@ get_object_dword_size:
         je .macro
         cmp ecx, object.tag.boolean
         je .boolean
+        cmp ecx, object.tag.char
+        je .char
         write size_unknown_object
         ccall exit, 1
     .empty_list:
@@ -365,6 +369,9 @@ get_object_dword_size:
         ret
     .boolean:
         mov eax, object_size.boolean shr 2
+        ret
+    .char:
+        mov eax, object_size.char shr 2
         ret
 
 ; Copies old object to live memory.
@@ -455,13 +462,23 @@ memory_old_to_free:
         ret
 
 ; Allocates number on the heap
-; In: 1) Value of number number
+; In: 1) Value of number
 ; Out: Allocated scheme object
 memory_create_number:
         ccall memory_alloc, object_size.number
         mov dword [eax+object.tag], object.tag.number
         mov edx, [esp+0x04]
         mov [eax+number.value], edx
+        ret
+
+; Allocates chracter on the heap
+; In: 1) Value of character
+; Out: Allocated scheme object
+memory_create_char:
+        ccall memory_alloc, object_size.char
+        mov dword [eax+object.tag], object.tag.char
+        mov edx, [esp+0x04]
+        mov [eax+char.value], edx
         ret
 
 ; Allocates string on the heap

@@ -73,6 +73,8 @@ eval:
         je .self
         cmp edx, object.tag.boolean
         je .self
+        cmp edx, object.tag.char
+        je .self
         jmp .unknown_type
 
     .eval_zero_args:

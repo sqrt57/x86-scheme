@@ -23,6 +23,7 @@ object.tag.native_special = 0x0b
 object.tag.lambda = 0x0c
 object.tag.macro = 0x0d
 object.tag.boolean = 0x0e
+object.tag.char = 0x0f
 
 object.tag.fixed = 0x100
 object.tag.gc_copied = 0x200
@@ -40,6 +41,7 @@ object_size.native_special = 0x08
 object_size.lambda = 0x10
 object_size.macro = 0x10
 object_size.boolean = 0x08
+object_size.char = 0x08
 
 cons_cell.car = 0x04
 cons_cell.cdr = 0x08
@@ -78,6 +80,8 @@ macro.body = 0x08
 macro.environment = 0x0c
 
 boolean.value = 0x04
+
+char.value = 0x04
 
 ; Memory is allocated in blocks of size memory_block_size
 ; Block structure:

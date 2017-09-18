@@ -245,6 +245,14 @@ booleanp:
         je return_true
         jmp return_false
 
+charp:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.char
+        je return_true
+        jmp return_false
+
 scheme_eq:
         ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]
@@ -462,6 +470,96 @@ string_append_2:
         ret
     .not_a_string:
         mov ecx, not_a_string_error
+        ret
+
+string_ref:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov edx, [edx+number.value]
+        mov ecx, [eax+string.length]
+        cmp edx, ecx
+        jae .out_of_bounds
+        movzx eax, byte [eax+string.data+edx]
+        ccall memory_create_char, eax
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .not_a_string:
+        mov ecx, not_a_string_error
+        ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret
+    .out_of_bounds:
+        mov ecx, string_ref_of_bounds_error
+        ret
+
+char_equals:
+        ensure_procedure_args 2
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.char
+        jne .char_error
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.char
+        jne .char_error
+        mov ecx, [eax+char.value]
+        cmp ecx, [edx+char.value]
+        je .equal
+        mov eax, false
+        jmp .ret
+    .equal:
+        mov eax, true
+    .ret:
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .char_error:
+        mov ecx, not_a_char_error
+        ret
+
+char_to_integer:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.char
+        jne .char_error
+        ccall memory_create_number, [eax+char.value]
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .char_error:
+        mov ecx, not_a_char_error
+        ret
+
+integer_to_char:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [eax+number.value]
+        cmp ecx, 0xff
+        ja .out_of_bounds
+        ccall memory_create_char, ecx
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret
+    .out_of_bounds:
+        mov ecx, char_out_of_bounds_error
         ret
 
 global_environment:
