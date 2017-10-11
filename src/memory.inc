@@ -481,12 +481,12 @@ memory_create_char:
         mov [eax+char.value], edx
         ret
 
-; Allocates string on the heap
+; Allocates string on the heap and copies content from source
 ; In: 1) Address of string
 ;     2) Length of string
 ; Out: Allocated scheme object
 ; For convenience null byte is added at the end of string
-memory_create_string:
+memory_create_string_from:
         push ebp
         mov ebp, esp
         push edi
@@ -508,11 +508,11 @@ memory_create_string:
         pop ebp
         ret
 
-; Allocates string without content on the heap
+; Allocates string on the heap
 ; In: 1) Length of string
 ; Out: Allocated scheme object
 ; For convenience null byte is added at the end of string
-memory_create_string_0:
+memory_create_string:
         push ebp
         mov ebp, esp
         mov eax, [arg1]
@@ -522,6 +522,38 @@ memory_create_string_0:
         mov edx, [arg1]
         mov [eax+string.length], edx
         mov byte [eax+string.data], 0
+        mov esp, ebp
+        pop ebp
+        ret
+
+; Allocates string on the heap and fills it with zeroes
+; In: 1) Length of string
+; Out: Allocated scheme object
+; For convenience null byte is added at the end of string
+memory_create_string_0:
+        push ebp
+        mov ebp, esp
+        push edi
+
+        ; Create string
+        mov eax, [arg1]
+        add eax, object_size.string + 1
+        ccall memory_alloc, eax
+        mov dword [eax+object.tag], object.tag.string
+        mov edx, [arg1]
+        mov [eax+string.length], edx
+        push eax
+
+        ; Fill it with zeroes
+        lea edi, [eax+string.data]
+        mov ecx, [arg1]
+        inc ecx
+        xor eax, eax
+        mov eax, 0
+        rep stosb
+
+        pop eax
+        pop edi
         mov esp, ebp
         pop ebp
         ret

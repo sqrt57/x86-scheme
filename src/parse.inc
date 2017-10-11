@@ -161,7 +161,7 @@ parse:
         mov edx, esi
         sub edx, eax
         dec edx
-        ccall memory_create_string, eax, edx
+        ccall memory_create_string_from, eax, edx
         mov [.result], eax
         jmp .process_result
 

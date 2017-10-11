@@ -178,6 +178,8 @@
 (test-assert "char=?-#f" (not (char=? (integer->char 55) (integer->char 3))))
 (test-equal "string-ref" (char->integer (string-ref "123" 1)) 50)
 
+(test-assert "make-string" (string? (make-string 5)))
+
 (test-end "core")
 
 (test-begin "write" 0)

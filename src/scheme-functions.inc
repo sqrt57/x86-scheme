@@ -408,7 +408,7 @@ symbol_to_string:
         cmp ecx, object.tag.symbol
         jne .not_a_symbol
         lea ecx, [eax+symbol.name_data]
-        ccall memory_create_string, ecx, [eax+symbol.name_length]
+        ccall memory_create_string_from, ecx, [eax+symbol.name_length]
         mov edx, empty_list
         xor ecx, ecx
         ret
@@ -434,7 +434,7 @@ string_append_2:
         mov ebx, edx
         mov ecx, [eax+string.length]
         add ecx, [edx+string.length]
-        ccall memory_create_string_0, ecx
+        ccall memory_create_string, ecx
         mov edi, eax
 
         ; Copy first string
@@ -742,3 +742,33 @@ error:
         ensure_procedure_args 1
         mov ecx, eax
         ret
+
+make_string:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        ccall memory_create_string_0, [eax+number.value]
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret
+
+    ;     mov ecx, [eax+object.tag]
+    ;     and ecx, object.tag.type_mask
+    ;     cmp ecx, object.tag.number
+    ;     jne .arithmetic_error
+    ;     mov ecx, [eax+number.value]
+    ;     cmp ecx, 0xff
+    ;     ja .out_of_bounds
+    ;     ccall memory_create_char, ecx
+    ;     mov edx, empty_list
+    ;     xor ecx, ecx
+    ;     ret
+    ; .out_of_bounds:
+    ;     mov ecx, char_out_of_bounds_error
+    ;     ret

@@ -12,8 +12,11 @@
 + Simplify builtin + and - to 2 and 1 arguments correspondingly
 + Add boolean type
 + Add ASCII character type
+- String manipulation
 - Paths routines
 - Directory routines
+- Dumb convertor between bytevector and ascii string
+- Bytevector routines
 - Require/provide
 - File reading
 - Replaceable reader
