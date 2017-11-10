@@ -47,6 +47,7 @@ def_proc 'symbol->string', symbol_to_string
 def_proc 'string-append-2', string_append_2
 def_proc 'string-ref', string_ref
 def_proc 'char=?', char_equals
+def_proc 'string-set!', string_set
 def_proc 'char->integer', char_to_integer
 def_proc 'integer->char', integer_to_char
 def_proc 'global-environment', global_environment
@@ -92,6 +93,7 @@ def_scheme_string not_a_char_error, 'non-char in char operation'
 def_scheme_string char_out_of_bounds_error, \
     'integer->char: argument out of char range'
 def_scheme_string string_ref_of_bounds_error, 'string-ref: index out of range'
+def_scheme_string string_set_of_bounds_error, 'string-set!: index out of range'
 def_scheme_string arg_list_error, 'argument list is not proper list'
 def_scheme_string wrong_args_count_str, 'incorrect number of arguments'
 def_scheme_string special_bad_syntax, 'syntax error in special form call'

@@ -502,6 +502,52 @@ string_ref:
         mov ecx, string_ref_of_bounds_error
         ret
 
+string_set:
+        ensure_procedure_args 3
+        push esi
+        mov esi, [edx+cons_cell.cdr]
+        mov esi, [esi+cons_cell.car]
+        mov edx, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        mov ecx, [edx+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [esi+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.char
+        jne .not_a_char
+        mov edx, [edx+number.value]
+        mov ecx, [eax+string.length]
+        cmp edx, ecx
+        jae .out_of_bounds
+        movzx ecx, byte [esi+char.value]
+        mov [eax+string.data+edx], cl
+        pop esi
+        mov eax, false
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .not_a_string:
+        pop esi
+        mov ecx, not_a_string_error
+        ret
+    .arithmetic_error:
+        pop esi
+        mov ecx, arithmetic_error
+        ret
+    .not_a_char:
+        pop esi
+        mov ecx, not_a_char_error
+        ret
+    .out_of_bounds:
+        pop esi
+        mov ecx, string_set_of_bounds_error
+        ret
+
 char_equals:
         ensure_procedure_args 2
         mov edx, [edx+cons_cell.car]

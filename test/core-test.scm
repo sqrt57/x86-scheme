@@ -179,6 +179,9 @@
 (test-equal "string-ref" (char->integer (string-ref "123" 1)) 50)
 
 (test-assert "make-string" (string? (make-string 5)))
+(define str (make-string 10))
+(string-set! str 3 (integer->char 60))
+(test-equal "string-set!" (char->integer (string-ref str 3)) 60)
 
 (test-end "core")
 
