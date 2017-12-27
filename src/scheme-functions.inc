@@ -499,7 +499,7 @@ string_ref:
         mov ecx, arithmetic_error
         ret
     .out_of_bounds:
-        mov ecx, string_ref_of_bounds_error
+        mov ecx, string_ref_out_of_bounds_error
         ret
 
 string_set:
@@ -545,7 +545,138 @@ string_set:
         ret
     .out_of_bounds:
         pop esi
-        mov ecx, string_set_of_bounds_error
+        mov ecx, string_set_out_of_bounds_error
+        ret
+
+; Arguments: to at from start end
+string_copy:
+        .to_addr equ local1
+        .to_len equ local2
+        .at equ local3
+        .from_addr equ local4
+        .from_len equ local5
+        .start equ local6
+        .end equ local7
+        ; Initialize
+        ensure_procedure_args 5
+        push ebp
+        mov ebp, esp
+        sub esp, 0x1c
+        push esi
+        push edi
+        ; Arg 1: to
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        lea ecx, [eax+string.data]
+        mov [.to_addr], ecx
+        mov ecx, [eax+string.length]
+        mov [.to_len], ecx
+        ; Arg 2: at
+        mov eax, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov eax, [eax+number.value]
+        mov [.at], eax
+        mov edx, [edx+cons_cell.cdr]
+        ; Arg 3: from
+        mov eax, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string
+        lea ecx, [eax+string.data]
+        mov [.from_addr], ecx
+        mov ecx, [eax+string.length]
+        mov [.from_len], ecx
+        mov edx, [edx+cons_cell.cdr]
+        ; Arg 4: start
+        mov eax, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov eax, [eax+number.value]
+        mov [.start], eax
+        mov edx, [edx+cons_cell.cdr]
+        ; Arg 5: end
+        mov eax, [edx+cons_cell.car]
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov eax, [eax+number.value]
+        mov [.end], eax
+        ; Check 0 <= at <= len(to)
+        mov eax, [.at]
+        cmp eax, 0
+        jnge .dest_out_of_bounds
+        mov ecx, [.to_len]
+        cmp ecx, eax
+        jnge .dest_out_of_bounds
+        ; Check 0 <= start <= end <= len(from)
+        mov eax, [.start]
+        cmp eax, 0
+        jnge .src_out_of_bounds
+        mov ecx, [.end]
+        cmp ecx, eax
+        jnge .src_out_of_bounds
+        mov eax, [.from_len]
+        cmp eax, ecx
+        jnge .src_out_of_bounds
+        ; Check start - end <= len(to) - at
+        mov eax, [.end]
+        sub eax, [.start]
+        mov ecx, [.to_len]
+        sub ecx, [.at]
+        cmp ecx, eax
+        jnge .dest_out_of_bounds
+        ; Prepare for copy
+        mov esi, [.from_addr]
+        add esi, [.start]
+        mov edi, [.to_addr]
+        add edi, [.at]
+        mov ecx, [.end]
+        sub ecx, [.start]
+        ; Check copy direction
+        cmp esi, edi
+        jl .back
+        ; Copy data forward
+        rep movsb
+        jmp .success
+    .back:
+        ; Copy data backwards
+        lea esi, [esi+ecx-1]
+        lea edi, [edi+ecx-1]
+        std
+        rep movsb
+        cld
+    .success:
+        ; Successful return
+        mov eax, false
+        mov edx, empty_list
+        xor ecx, ecx
+        jmp .ret
+    .not_a_string:
+        mov ecx, not_a_string_error
+        jmp .ret
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        jmp .ret
+    .src_out_of_bounds:
+        mov ecx, string_copy_src_out_of_bounds_error
+        jmp .ret
+    .dest_out_of_bounds:
+        mov ecx, string_copy_dest_out_of_bounds_error
+        jmp .ret
+    .ret:
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
         ret
 
 char_equals:
@@ -803,18 +934,3 @@ make_string:
     .arithmetic_error:
         mov ecx, arithmetic_error
         ret
-
-    ;     mov ecx, [eax+object.tag]
-    ;     and ecx, object.tag.type_mask
-    ;     cmp ecx, object.tag.number
-    ;     jne .arithmetic_error
-    ;     mov ecx, [eax+number.value]
-    ;     cmp ecx, 0xff
-    ;     ja .out_of_bounds
-    ;     ccall memory_create_char, ecx
-    ;     mov edx, empty_list
-    ;     xor ecx, ecx
-    ;     ret
-    ; .out_of_bounds:
-    ;     mov ecx, char_out_of_bounds_error
-    ;     ret

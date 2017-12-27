@@ -182,6 +182,14 @@
 (define str (make-string 10))
 (string-set! str 3 (integer->char 60))
 (test-equal "string-set!" (char->integer (string-ref str 3)) 60)
+(define str (make-string 10))
+(string-copy! str 0 "abcdefghij" 0 10)
+(string-copy! str 0 str 2 10)
+(test-equal "string-copy!" str "cdefghijij")
+(define str (make-string 10))
+(string-copy! str 0 "abcdefghij" 0 10)
+(string-copy! str 2 str 0 8)
+(test-equal "string-copy!-backwards" str "ababcdefgh")
 
 (test-end "core")
 

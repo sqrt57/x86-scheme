@@ -42,6 +42,12 @@ local1 equ ebp-0x04
 local2 equ ebp-0x08
 local3 equ ebp-0x0c
 local4 equ ebp-0x10
+local5 equ ebp-0x14
+local6 equ ebp-0x18
+local7 equ ebp-0x1c
+local8 equ ebp-0x20
+local9 equ ebp-0x24
+local10 equ ebp-0x28
 
 macro stdcall proc, [arg]
 {
