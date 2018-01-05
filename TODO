@@ -12,13 +12,15 @@
 + Simplify builtin + and - to 2 and 1 arguments correspondingly
 + Add boolean type
 + Add ASCII character type
+- File reading
+- Dumb converter between bytevector and ascii string
+- Bytevector routines
 - String manipulation
+- Remove built-in macros
+- Require/provide
+- R7RS modules
 - Paths routines
 - Directory routines
-- Dumb convertor between bytevector and ascii string
-- Bytevector routines
-- Require/provide
-- File reading
 - Replaceable reader
 - Add user-defined types
 - File writing
