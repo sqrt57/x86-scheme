@@ -1,4 +1,4 @@
-; x86-scheme platform-dependent functions for win32
+; win32 platform-dependent functions
 ;
 ; This file is part of x86-scheme project.
 ; Copyright (c) 2015-2018, Dmitry Grigoryev
@@ -142,7 +142,7 @@ read_file:
         ; [EBP-20] Number of bytes read
         ; [EBP-24] Result of ReadFile
 
-        stdcall [CreateFileA], [ebp+8], 0x80000000, 1, 0, 3, 0, 0
+        stdcall [CreateFileA], [ebp+8], 0x80000000, 1, 0, 3, 0x80, 0
         mov [.handle], eax
         cmp eax, -1
         je .error
@@ -464,3 +464,38 @@ utf16_to_utf8:
         add esp, 8
         sub edx, 4
         jmp .start
+
+
+win_open_read:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.string
+        jne .not_a_string_error
+        lea eax, [eax+string.data]
+        stdcall [CreateFileA], eax, 0x80000000, 1, 0, 3, 0x80, 0
+        mov [.handle], eax
+        cmp eax, -1
+        je return_false
+        ccall memory_create_number, eax
+        mov edx, empty_list
+        xor ecx, ecx
+        ret
+    .not_a_string_error:
+        mov ecx, not_a_string_error
+        ret
+
+win_close:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov ecx, [eax+number.value]
+        stdcall [CloseHandle], ecx
+        test eax, eax
+        jz return_false
+        jmp return_true
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret

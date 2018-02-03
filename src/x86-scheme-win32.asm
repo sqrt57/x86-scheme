@@ -20,6 +20,9 @@ include 'system-win32.inc'
 macro PLATFORM_RDATA
 {
 section '.rdata' data readable
+
+def_proc 'win-open-read', win_open_read
+def_proc 'win-close', win_close
 }
 
 macro PLATFORM_DATA

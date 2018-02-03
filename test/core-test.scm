@@ -191,6 +191,10 @@
 (string-copy! str 2 str 0 8)
 (test-equal "string-copy!-backwards" str "ababcdefgh")
 
+(define handle (win-open-read "test.bat"))
+(test-assert "win-close-#t" (win-close handle))
+(test-assert "win-close-#f" (not (win-close handle)))
+
 (test-end "core")
 
 (test-begin "write" 0)
