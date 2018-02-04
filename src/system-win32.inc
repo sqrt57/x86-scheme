@@ -474,7 +474,6 @@ win_open_read:
         jne .not_a_string_error
         lea eax, [eax+string.data]
         stdcall [CreateFileA], eax, 0x80000000, 1, 0, 3, 0x80, 0
-        mov [.handle], eax
         cmp eax, -1
         je return_false
         ccall memory_create_number, eax
@@ -491,6 +490,7 @@ win_close:
         and ecx, object.tag.type_mask
         cmp ecx, object.tag.number
         jne .arithmetic_error
+
         mov ecx, [eax+number.value]
         stdcall [CloseHandle], ecx
         test eax, eax
