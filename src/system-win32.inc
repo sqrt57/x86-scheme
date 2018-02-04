@@ -194,7 +194,7 @@ finish_file:
 malloc:
         mov eax, [esp+4]
         stdcall [HeapAlloc], [win32_heap], 0, eax
-                ret
+        ret
 
 ; Calculates number of 16-bit characters in null-terminated UTF-16 string
 ; In: 1) address of null-terminated UTF-16 string
@@ -496,6 +496,48 @@ win_close:
         test eax, eax
         jz return_false
         jmp return_true
+    .arithmetic_error:
+        mov ecx, arithmetic_error
+        ret
+
+win_get_file_size:
+        ensure_procedure_args 1
+        mov ecx, [eax+object.tag]
+        and ecx, object.tag.type_mask
+        cmp ecx, object.tag.number
+        jne .arithmetic_error
+        mov eax, [eax+number.value]
+
+        push ebp
+        mov ebp, esp
+        sub esp, 0x08
+
+        .size_high equ local1
+        .size_low equ local2
+
+        lea edx, [.size_low]
+        stdcall [GetFileSizeEx], eax, edx
+        test eax, eax
+        jz .return_false
+
+        cmp dword [.size_high], 0
+        jnz .return_false
+
+        cmp dword [.size_low], 0
+        jl .return_false
+
+        ccall memory_create_number, [.size_low]
+        mov edx, empty_list
+        xor ecx, ecx
+        mov esp, ebp
+        pop ebp
+        ret
+
+    .return_false:
+        mov esp, ebp
+        pop ebp
+        jmp return_false
+
     .arithmetic_error:
         mov ecx, arithmetic_error
         ret

@@ -23,6 +23,7 @@ section '.rdata' data readable
 
 def_proc 'win-open-read', win_open_read
 def_proc 'win-close', win_close
+def_proc 'win-get-file-size', win_get_file_size
 }
 
 macro PLATFORM_DATA
